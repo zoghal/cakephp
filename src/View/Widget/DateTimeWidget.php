@@ -14,6 +14,7 @@
  */
 namespace Cake\View\Widget;
 
+use Cake\I18n\Time;
 use Cake\View\Form\ContextInterface;
 use Cake\View\StringTemplate;
 use Cake\View\Widget\SelectBoxWidget;
@@ -49,6 +50,7 @@ class DateTimeWidget implements WidgetInterface
         'minute',
         'second',
         'meridian',
+        'localization',
     ];
 
     /**
@@ -126,7 +128,6 @@ class DateTimeWidget implements WidgetInterface
         $data = $this->_normalizeData($data);
 
         $selected = $this->_deconstructDate($data['val'], $data);
-
         $templateOptions = [];
         foreach ($this->_selects as $select) {
             if ($data[$select] === false || $data[$select] === null) {
@@ -143,7 +144,8 @@ class DateTimeWidget implements WidgetInterface
             $method = "_{$select}Select";
             $data[$select]['name'] = $data['name'] . "[" . $select . "]";
             $data[$select]['val'] = $selected[$select];
-
+            $data[$select] += $data['localization'];
+             
             if (!isset($data[$select]['empty'])) {
                 $data[$select]['empty'] = $data['empty'];
             }
@@ -187,7 +189,12 @@ class DateTimeWidget implements WidgetInterface
         if ($timeFormat === 24) {
             $data['meridian'] = false;
         }
-
+        
+        $locale = $data['localization']['locale'];
+        $locale = 'en_' . locale_get_region($locale) . '@calendar=' . Time::getCalendarName($locale);
+        $data['localization']['baseLocale'] = $locale;
+        unset($locale);
+         
         return $data;
     }
 
@@ -209,11 +216,11 @@ class DateTimeWidget implements WidgetInterface
         }
         try {
             if (is_string($value)) {
-                $date = new \DateTime($value);
+                $date = new Time($value);
             } elseif (is_bool($value)) {
-                $date = new \DateTime();
+                $date = new Time();
             } elseif (is_int($value)) {
-                $date = new \DateTime('@' . $value);
+                $date = new Time('@' . $value);
             } elseif (is_array($value)) {
                 $dateArray = [
                     'year' => '', 'month' => '', 'day' => '',
@@ -246,27 +253,31 @@ class DateTimeWidget implements WidgetInterface
                     return $dateArray;
                 }
 
-                $date = new \DateTime();
+                $date = new Time();
             } else {
                 $date = clone $value;
             }
         } catch (\Exception $e) {
-            $date = new \DateTime();
+            $date = new Time();
         }
 
+        $locale = $options['localization']['baseLocale'];
+        $tz = $options['localization']['timezone'];
+
         if (isset($options['minute']['interval'])) {
-            $change = $this->_adjustValue($date->format('i'), $options['minute']);
+            $change = $this->_adjustValue($date->I18nFormat('mm', $tz, $locale), $options['minute']);
             $date->modify($change > 0 ? "+$change minutes" : "$change minutes");
         }
 
         return [
-            'year' => $date->format('Y'),
-            'month' => $date->format('m'),
-            'day' => $date->format('d'),
-            'hour' => $date->format('H'),
-            'minute' => $date->format('i'),
-            'second' => $date->format('s'),
-            'meridian' => $date->format('a'),
+            'year' => $date->I18nFormat('yyyy', $tz, $locale),
+            'month' => $date->I18nFormat('MM', $tz, $locale),
+            'day' => $date->I18nFormat('dd', $tz, $locale),
+            'hour' => $date->I18nFormat('HH', $tz, $locale),
+            'minute' => $date->I18nFormat('mm', $tz, $locale),
+            'second' => $date->I18nFormat('ss', $tz, $locale),
+            'meridian' => $date->I18nFormat('a', $tz, $locale),
+            'localization' => null
         ];
     }
 
@@ -303,11 +314,13 @@ class DateTimeWidget implements WidgetInterface
      */
     protected function _yearSelect($options, $context)
     {
+        $date = new Time(null, $options['timezone']);
         $options += [
             'name' => '',
             'val' => null,
-            'start' => date('Y', strtotime('-5 years')),
-            'end' => date('Y', strtotime('+5 years')),
+
+            'start' => $date->subYears(5)->I18nFormat("yyyy", null, $options['baseLocale']),
+            'end' => $date->addYears(10)->I18nFormat("yyyy", null, $options['baseLocale']),
             'order' => 'desc',
             'options' => []
         ];
@@ -317,12 +330,16 @@ class DateTimeWidget implements WidgetInterface
             $options['end'] = max($options['val'], $options['end']);
         }
         if (empty($options['options'])) {
-            $options['options'] = $this->_generateNumbers($options['start'], $options['end']);
+            $options['options'] = $this->_generateNumbers($options['start'], $options['end'], ['locale' => $options['locale'] ]);
         }
         if ($options['order'] === 'desc') {
             $options['options'] = array_reverse($options['options'], true);
         }
-        unset($options['start'], $options['end'], $options['order']);
+        unset(
+            $options['start'], $options['end'],
+            $options['order'], $options['locale'],
+            $options['timezone'], $options['baseLocale']
+        );
         return $this->_select->render($options, $context);
     }
 
@@ -345,7 +362,7 @@ class DateTimeWidget implements WidgetInterface
 
         if (empty($options['options'])) {
             if ($options['names'] === true) {
-                $options['options'] = $this->_getMonthNames($options['leadingZeroKey']);
+                $options['options'] = $this->_getMonthNames($options['leadingZeroKey'], $options);
             } elseif (is_array($options['names'])) {
                 $options['options'] = $options['names'];
             } else {
@@ -353,7 +370,11 @@ class DateTimeWidget implements WidgetInterface
             }
         }
 
-        unset($options['leadingZeroKey'], $options['leadingZeroValue'], $options['names']);
+        unset(
+            $options['leadingZeroKey'], $options['leadingZeroValue'],
+            $options['names'], $options['locale'],
+            $options['timezone'], $options['baseLocale']
+        );
         return $this->_select->render($options, $context);
     }
 
@@ -374,7 +395,11 @@ class DateTimeWidget implements WidgetInterface
         ];
         $options['options'] = $this->_generateNumbers(1, 31, $options);
 
-        unset($options['names'], $options['leadingZeroKey'], $options['leadingZeroValue']);
+        unset(
+            $options['names'], $options['leadingZeroKey'],
+            $options['leadingZeroValue'], $options['locale'],
+            $options['timezone'], $options['baseLocale']
+        );
         return $this->_select->render($options, $context);
     }
 
@@ -425,7 +450,8 @@ class DateTimeWidget implements WidgetInterface
         unset(
             $options['end'], $options['start'],
             $options['format'], $options['leadingZeroKey'],
-            $options['leadingZeroValue']
+            $options['leadingZeroValue'], $options['locale'],
+            $options['timezone'], $options['baseLocale']
         );
         return $this->_select->render($options, $context);
     }
@@ -453,10 +479,10 @@ class DateTimeWidget implements WidgetInterface
         }
 
         unset(
-            $options['leadingZeroKey'],
-            $options['leadingZeroValue'],
-            $options['interval'],
-            $options['round']
+            $options['leadingZeroKey'], $options['leadingZeroValue'],
+            $options['interval'], $options['round'],
+            $options['locale'], $options['timezone'],
+            $options['baseLocale']
         );
         return $this->_select->render($options, $context);
     }
@@ -478,7 +504,11 @@ class DateTimeWidget implements WidgetInterface
             'options' => $this->_generateNumbers(0, 59)
         ];
 
-        unset($options['leadingZeroKey'], $options['leadingZeroValue']);
+        unset(
+            $options['leadingZeroKey'], $options['leadingZeroValue'],
+            $options['locale'], $options['timezone'],
+            $options['baseLocale']
+        );
         return $this->_select->render($options, $context);
     }
 
@@ -500,33 +530,46 @@ class DateTimeWidget implements WidgetInterface
     }
 
     /**
+     * Generates a localization hidden input
+     *
+     * @param array $options The options to generate a hidden input
+     * @param \Cake\View\Form\ContextInterface $context The current form context.
+     * @return string
+     */
+    protected function _localizationSelect($options, $context)
+    {
+        $name = $options['name'];
+        $prams = $options['locale'] . ':' . $options['timezone'];
+        $template = '<div style="display:none;"><input name="' . $name . '" value="' . $prams . '" type="hidden"></div>';
+        return $template;
+    }
+
+    /**
      * Returns a translated list of month names
      *
      * @param bool $leadingZero Whether to generate month keys with leading zero.
+     * @param array $options The options to generate a month names.
      * @return array
      */
-    protected function _getMonthNames($leadingZero = false)
+    protected function _getMonthNames($leadingZero = false, $options = null)
     {
-        $months = [
-            '01' => __d('cake', 'January'),
-            '02' => __d('cake', 'February'),
-            '03' => __d('cake', 'March'),
-            '04' => __d('cake', 'April'),
-            '05' => __d('cake', 'May'),
-            '06' => __d('cake', 'June'),
-            '07' => __d('cake', 'July'),
-            '08' => __d('cake', 'August'),
-            '09' => __d('cake', 'September'),
-            '10' => __d('cake', 'October'),
-            '11' => __d('cake', 'November'),
-            '12' => __d('cake', 'December'),
-        ];
+        $date = new Time(null, $options['timezone']);
+        $months = [];
+        for ($i = 1; $i <= 12; $i++) {
+            $date->month($i);
+            $key = $date->i18nFormat("MM", null, $options['baseLocale']);
+            $val = $date->i18nFormat("MMMM", null, $options['locale']);
+            $months[$key] = trim($val);
+        }
+
+        unset($date);
+        ksort($months);
 
         if ($leadingZero === false) {
             $i = 1;
             foreach ($months as $key => $name) {
-                $months[$i++] = $name;
                 unset($months[$key]);
+                $months[$i++] = $name;
             }
         }
 
@@ -566,7 +609,7 @@ class DateTimeWidget implements WidgetInterface
             if ($options['leadingZeroValue'] === true) {
                 $value = sprintf('%02d', $value);
             }
-            $numbers[$key] = $value;
+            $numbers[$key] = \Cake\I18n\Number::format($value, ['locale' => $options['locale'], 'pattern' => '####']);
             $i += $options['interval'];
         }
         return $numbers;

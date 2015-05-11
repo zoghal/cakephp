@@ -68,6 +68,30 @@ class Time extends Carbon implements JsonSerializable
     public static $defaultLocale;
 
     /**
+     * The default calendar to be used for displaying Localization date strings.
+     *
+     * @var string
+     */
+    public static $defaultCalendar;
+
+    /**
+     * list of calendars ICU supported and can use when need converting or Localization date.
+     *
+     * @var array
+     */
+    public static $calendars = [
+        'gregorian',
+        'japanese',
+        'buddhist',
+        'chinese',
+        'persian',
+        'indian',
+        'islamic',
+        'hebrew',
+        'coptic',
+        'ethiopic'
+    ];
+    /**
      * The format to use when formatting a time using `Cake\I18n\Time::timeAgoInWords()`
      * and the difference is more than `Cake\I18n\Time::$wordEnd`
      *
@@ -582,12 +606,7 @@ class Time extends Carbon implements JsonSerializable
             $pattern = $format;
         }
 
-        if (preg_match('/@calendar=(japanese|buddhist|chinese|persian|indian|islamic|hebrew|coptic|ethiopic)/', $locale)) {
-            $calendar = \IntlDateFormatter::TRADITIONAL;
-        } else {
-            $calendar = \IntlDateFormatter::GREGORIAN;
-        }
-
+        $calendar = static::getCalendarType($locale);
         $timezone = $date->getTimezone()->getName();
         $key = "{$locale}.{$dateFormat}.{$timeFormat}.{$timezone}.{$calendar}.{$pattern}";
 
@@ -702,15 +721,22 @@ class Time extends Carbon implements JsonSerializable
      *  $time = Time::parseDateTime('10/13/2013 12:54am');
      *  $time = Time::parseDateTime('13 Oct, 2013 13:54', 'dd MMM, y H:mm');
      *  $time = Time::parseDateTime('10/10/2015', [IntlDateFormatter::SHORT, -1]);
+     *  $time = Time::parseDateTime('۱۳۹۴/۰۲/۰۱ ۲۲:۱۰:۱۱', 'yyyy/MM/dd hh:mm:ss', 'Asia/Tehran', 'fa_IR');
+     *  $time = Time::parseDateTime('1436/12/02', 'yyyy/MM/dd', null, 'en_IR@calendar=islamic' );
      * ```
      *
      * @param string $time The time string to parse.
-     * @param string|array $format Any format accepted by IntlDateFormatter.
+     * @param string $format Any format accepted by IntlDateFormatter.
+     * @param string|\DateTimeZone|null $timezone Timezone string or DateTimeZone object
+     * in which the date will be displayed.
+     * @param string $locale The locale name in which the date should be parsed.
      * @return static|null
      */
-    public static function parseDateTime($time, $format = null)
+    public static function parseDateTime($time, $format = null, $timezone = null, $locale = null)
     {
         $dateFormat = $format ?: static::$_toStringFormat;
+        $localeFormat = $locale ?: static::$defaultLocale;
+        $tz = $timezone ?: date_default_timezone_get();
         $timeFormat = $pattern = null;
 
         if (is_array($dateFormat)) {
@@ -722,17 +748,17 @@ class Time extends Carbon implements JsonSerializable
         }
 
         $formatter = datefmt_create(
-            static::$defaultLocale,
+            $localeFormat,
             $dateFormat,
             $timeFormat,
-            date_default_timezone_get(),
-            null,
+            $tz,
+            static::getCalendarType($localeFormat),
             $pattern
         );
         $time = $formatter->parse($time);
         if ($time) {
             $result = new static('@' . $time);
-            $result->setTimezone(date_default_timezone_get());
+            $result->setTimezone($tz);
             return $result;
         }
         return null;
@@ -754,19 +780,24 @@ class Time extends Carbon implements JsonSerializable
      *  $time = Time::parseDate('10/13/2013');
      *  $time = Time::parseDate('13 Oct, 2013', 'dd MMM, y');
      *  $time = Time::parseDate('13 Oct, 2013', IntlDateFormatter::SHORT);
+     *  $time = Time::parseDateTime('۱۳۹۴/۰۲/۰۱', 'yyyy/MM/dd', 'Asia/Tehran', 'fa_IR');
+     *  $time = Time::parseDateTime('1436/12/02', 'yyyy/MM/dd', null, 'en_IR@calendar=islamic' );
      * ```
      *
      * @param string $date The date string to parse.
      * @param string|int $format Any format accepted by IntlDateFormatter.
+     * @param string|\DateTimeZone|null $timezone Timezone string or DateTimeZone object
+     * in which the date will be displayed.
+     * @param string $locale The locale name in which the date should be parsed.
      * @return static|null
      */
-    public static function parseDate($date, $format = null)
+    public static function parseDate($date, $format = null, $timezone = null, $locale = null)
     {
         if (is_int($format)) {
             $format = [$format, -1];
         }
         $format = $format ?: static::$wordFormat;
-        return static::parseDateTime($date, $format);
+        return static::parseDateTime($date, $format, $timezone, $locale);
     }
 
     /**
@@ -787,15 +818,54 @@ class Time extends Carbon implements JsonSerializable
      *
      * @param string $time The time string to parse.
      * @param string|int $format Any format accepted by IntlDateFormatter.
+     * @param string|\DateTimeZone|null $timezone Timezone string or DateTimeZone object
+     * in which the date will be displayed.
+     * @param string $locale The locale name in which the date should be parsed.
      * @return static|null
      */
-    public static function parseTime($time, $format = null)
+    public static function parseTime($time, $format = null, $timezone = null, $locale = null)
     {
         if (is_int($format)) {
             $format = [-1, $format];
         }
         $format = $format ?: [-1, IntlDateFormatter::SHORT];
         return static::parseDateTime($time, $format);
+    }
+
+    /**
+     * Returns the calendar name of locale
+     *
+     * @param string|null $locale The locale name in which the date should be displayed (e.g. pt-BR)
+     * @return gregorian|japanese|buddhist|chinese|persian|indian|islamic|hebrew|coptic|ethiopic|null
+     */
+    public static function getCalendarName($locale = null)
+    {
+        if ($locale === null) {
+            $locale = is_null(static::$defaultLocale) ? ini_get('intl.default_locale') : static::$defaultLocale;
+        }
+
+        if (static::$defaultCalendar !== null && strpos($locale, '@') === false) {
+            $locale = '@calendar=' . static::$defaultCalendar;
+        }
+        
+        $cal = \IntlCalendar::createInstance(date_default_timezone_get(), $locale);
+
+        return $cal->getType();
+    }
+
+    /**
+     * Returns the calendar type
+     * @param string|null $locale The locale name in which the date should be displayed (e.g. pt-BR)
+     * @return integer \IntlDateFormatter::TRADITIONAL|\IntlDateFormatter::GREGORIAN
+     */
+    public static function getCalendarType($locale = null)
+    {
+        $name = static::getCalendarName($locale);
+
+        if ($name !== 'gregorian') {
+            return \IntlDateFormatter::TRADITIONAL;
+        }
+        return \IntlDateFormatter::GREGORIAN;
     }
 
     /**

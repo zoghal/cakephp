@@ -52,7 +52,7 @@ class DateTimeType extends Type
      *
      * @var string|array|int
      */
-    protected $_localeFormat;
+    protected $_localeFormat = 'yyyy-MM-dd hh:mm:ss';
 
     /**
      * An instance of the configured dateTimeClass, used to quickly generate
@@ -172,9 +172,13 @@ class DateTimeType extends Type
             $value['minute'],
             $value['second']
         );
-        $tz = isset($value['timezone']) ? $value['timezone'] : null;
 
-        return new $class($format, $tz);
+        $timezone = null;
+        if (isset($value['localization'])) {
+            list($locale, $timezone) = explode(':', $value['localization']);
+            $format = $this->_parseValue($format, $timezone, $locale);
+        } 
+        return new $class($format, $timezone);
     }
 
     /**
@@ -221,11 +225,13 @@ class DateTimeType extends Type
      * aware parser with the specified format.
      *
      * @param string $value The value to parse and convert to an object.
+     * @param string $timezone The TimeZone to parse and convert to an object.
+     * @param string $locale The Locale to parse and convert to an object.
      * @return \Cake\I18n\Time|null
      */
-    protected function _parseValue($value)
+    protected function _parseValue($value, $timezone = null, $locale = null)
     {
         $class = static::$dateTimeClass;
-        return $class::parseDateTime($value, $this->_localeFormat);
+        return $class::parseDateTime($value, $this->_localeFormat, $timezone, $locale);
     }
 }
