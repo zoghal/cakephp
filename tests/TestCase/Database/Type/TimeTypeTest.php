@@ -181,7 +181,7 @@ class TimeTypeTest extends TestCase
         $this->type->useLocaleParser();
         $expected = new Time('23:23:00');
         $result = $this->type->marshal('11:23pm');
-        $this->assertEquals($expected->format('H:i'), $result->format('H:i'));
+        $this->assertEquals($expected->format('hh:mm'), $result->format('hh:mm'));
 
         $this->assertNull($this->type->marshal('derp:23'));
     }

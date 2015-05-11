@@ -36,7 +36,7 @@ class TimeType extends DateTimeType
      *
      * @var string|array|int
      */
-    protected $_localeFormat = 'hh:mm:ss';
+    protected $_localeFormat;
 
     
     /**
@@ -45,6 +45,6 @@ class TimeType extends DateTimeType
     protected function _parseValue($value, $timezone = null, $locale = null)
     {
         $class = static::$dateTimeClass;
-        return $class::parseTime($value, $this->_localeFormat);
+        return $class::parseTime($value, $this->_localeFormat, $timezone, $locale);
     }
 }

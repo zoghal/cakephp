@@ -540,7 +540,7 @@ class DateTimeWidget implements WidgetInterface
     {
         $name = $options['name'];
         $prams = $options['locale'] . ':' . $options['timezone'];
-        $template = '<div style="display:none;"><input name="' . $name . '" value="' . $prams . '" type="hidden"></div>';
+        $template = '<input name="' . $name . '" value="' . $prams . '" type="hidden">';
         return $template;
     }
 
