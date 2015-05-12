@@ -144,6 +144,7 @@ class DateTimeWidget implements WidgetInterface
             $method = "_{$select}Select";
             $data[$select]['name'] = $data['name'] . "[" . $select . "]";
             $data[$select]['val'] = $selected[$select];
+            $data[$select]['alias'] = $data['name'];
             $data[$select] += $data['localization'];
              
             if (!isset($data[$select]['empty'])) {
@@ -180,6 +181,7 @@ class DateTimeWidget implements WidgetInterface
             'minute' => [],
             'second' => [],
             'meridian' => null,
+            'localization' => ['locale' => null, 'baseLocale' => null, 'timezone' => null]
         ];
 
         $timeFormat = isset($data['hour']['format']) ? $data['hour']['format'] : null;
@@ -190,11 +192,19 @@ class DateTimeWidget implements WidgetInterface
             $data['meridian'] = false;
         }
         
-        $locale = $data['localization']['locale'];
-        $locale = 'en_' . locale_get_region($locale) . '@calendar=' . Time::getCalendarName($locale);
-        $data['localization']['baseLocale'] = $locale;
-        unset($locale);
-         
+        $data['localization']['timezone'] = $data['timezone'];
+        $data['locale'] = Time::getDefaultLocale($data['locale'], true);
+        $data['localization']['locale'] = $data['localization']['baseLocale'] = $data['locale'];
+
+        if ($data['locale'] !== null) {
+            $data['locale'] = preg_split('/@calendar=/', $data['locale']);
+            $locale = (isset($data['locale'][1]))? '@calendar=' . $data['locale'][1] : '';
+            $data['localization']['baseLocale'] = 'en_' . locale_get_region($data['locale'][0]) . $locale;
+        } else {
+            $data['localization']['baseLocale'] = 'en';
+        }
+
+        unset($locale, $data['locale'], $data['timezone']);
         return $data;
     }
 
@@ -260,7 +270,6 @@ class DateTimeWidget implements WidgetInterface
         } catch (\Exception $e) {
             $date = new Time();
         }
-
         $locale = $options['localization']['baseLocale'];
         $tz = $options['localization']['timezone'];
 
@@ -335,11 +344,13 @@ class DateTimeWidget implements WidgetInterface
         if ($options['order'] === 'desc') {
             $options['options'] = array_reverse($options['options'], true);
         }
+        
         unset(
             $options['start'], $options['end'],
             $options['order'], $options['locale'],
             $options['timezone'], $options['baseLocale']
         );
+        
         return $this->_select->render($options, $context);
     }
 
@@ -538,10 +549,18 @@ class DateTimeWidget implements WidgetInterface
      */
     protected function _localizationSelect($options, $context)
     {
-        $name = $options['name'];
-        $prams = $options['locale'] . ':' . $options['timezone'];
-        $template = '<input name="' . $name . '" value="' . $prams . '" type="hidden">';
-        return $template;
+        $out = '';
+        $template = '<input name="%s[%s]" value="%s" type="hidden">';
+        
+        if ($options['locale'] !== null) {
+            $out = sprintf($template, $options['alias'], 'locale', $options['locale']);
+        }
+        
+        if ($options['timezone'] !== null) {
+            $out = $out . sprintf($template, $options['alias'], 'timezone', $options['timezone']);
+        }
+
+        return $out;
     }
 
     /**
@@ -561,7 +580,7 @@ class DateTimeWidget implements WidgetInterface
             $val = $date->i18nFormat("MMMM", null, $options['locale']);
             $months[$key] = trim($val);
         }
-
+        
         unset($date);
         ksort($months);
 
@@ -609,9 +628,13 @@ class DateTimeWidget implements WidgetInterface
             if ($options['leadingZeroValue'] === true) {
                 $value = sprintf('%02d', $value);
             }
-            $numbers[$key] = \Cake\I18n\Number::format($value, ['locale' => $options['locale'], 'pattern' => '####']);
+            if (isset($options['locale'])) {
+                $value = \Cake\I18n\Number::format($value, ['locale' => $options['locale'], 'pattern' => '####']);
+            }
+            $numbers[$key] = $value;
             $i += $options['interval'];
         }
+        
         return $numbers;
     }
 

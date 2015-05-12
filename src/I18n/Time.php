@@ -65,14 +65,14 @@ class Time extends Carbon implements JsonSerializable
      *
      * @var string
      */
-    public static $defaultLocale;
+    protected static $defaultLocale;
 
     /**
      * The default calendar to be used for displaying Localization date strings.
      *
      * @var string
      */
-    public static $defaultCalendar;
+    protected static $defaultCalendar;
 
     /**
      * list of calendars ICU supported and can use when need converting or Localization date.
@@ -580,7 +580,8 @@ class Time extends Carbon implements JsonSerializable
         }
 
         $format = $format !== null ? $format : static::$_toStringFormat;
-        $locale = $locale ?: static::$defaultLocale;
+        $locale = static::getDefaultLocale($locale, true);
+        
         return $this->_formatObject($time, $format, $locale);
     }
 
@@ -605,8 +606,9 @@ class Time extends Carbon implements JsonSerializable
             $dateFormat = $timeFormat = IntlDateFormatter::FULL;
             $pattern = $format;
         }
-
-        $calendar = static::getCalendarType($locale);
+        
+        
+        $calendar = $this->detectCalendarType($locale);
         $timezone = $date->getTimezone()->getName();
         $key = "{$locale}.{$dateFormat}.{$timeFormat}.{$timezone}.{$calendar}.{$pattern}";
 
@@ -735,7 +737,7 @@ class Time extends Carbon implements JsonSerializable
     public static function parseDateTime($time, $format = null, $timezone = null, $locale = null)
     {
         $dateFormat = $format ?: static::$_toStringFormat;
-        $localeFormat = $locale ?: static::$defaultLocale;
+        $localeFormat = static::getDefaultLocale($locale);
         $tz = $timezone ?: date_default_timezone_get();
         $timeFormat = $pattern = null;
 
@@ -752,7 +754,7 @@ class Time extends Carbon implements JsonSerializable
             $dateFormat,
             $timeFormat,
             $tz,
-            static::getCalendarType($localeFormat),
+            self::detectCalendarType($localeFormat),
             $pattern
         );
         $time = $formatter->parse($time);
@@ -833,41 +835,70 @@ class Time extends Carbon implements JsonSerializable
     }
 
     /**
-     * Returns the calendar name of locale
-     *
-     * @param string|null $locale The locale name in which the date should be displayed (e.g. pt-BR)
-     * @return gregorian|japanese|buddhist|chinese|persian|indian|islamic|hebrew|coptic|ethiopic|null
-     */
-    public static function getCalendarName($locale = null)
-    {
-        if ($locale === null) {
-            $locale = is_null(static::$defaultLocale) ? ini_get('intl.default_locale') : static::$defaultLocale;
-        }
-
-        if (static::$defaultCalendar !== null && strpos($locale, '@') === false) {
-            $locale = '@calendar=' . static::$defaultCalendar;
-        }
-        
-        $cal = \IntlCalendar::createInstance(date_default_timezone_get(), $locale);
-
-        return $cal->getType();
-    }
-
-    /**
      * Returns the calendar type
      * @param string|null $locale The locale name in which the date should be displayed (e.g. pt-BR)
      * @return integer \IntlDateFormatter::TRADITIONAL|\IntlDateFormatter::GREGORIAN
      */
-    public static function getCalendarType($locale = null)
+    public static function detectCalendarType($locale = null)
     {
-        $name = static::getCalendarName($locale);
-
-        if ($name !== 'gregorian') {
+        if (preg_match('/@calendar=(japanese|buddhist|chinese|persian|indian|islamic|hebrew|coptic|ethiopic)/', $locale)) {
             return \IntlDateFormatter::TRADITIONAL;
         }
         return \IntlDateFormatter::GREGORIAN;
     }
 
+    /**
+     * Sets the default locale used when need when converting date to locale.
+     *
+     * @param string|array|int $format Format.
+     * @return void
+     */
+    public static function setDefaultCalendar($calendar)
+    {
+        
+        static::$defaultCalendar = $calendar;
+    }
+
+    /**
+     * Sets the default locale used when need when converting date to locale.
+     *
+     * @param string|array|int $format Format.
+     * @return void
+     */
+    public static function setDefaultLocale($local)
+    {
+        static::$defaultLocale = $local;
+    }
+
+    /**
+     * Returns current locale is setted.
+     *
+     * @param string|array|int $format Format.
+     * @return void
+     */
+    public static function getDefaultLocale($locale = null, $useCalender = false)
+    {
+        $locale = $locale ?: static::$defaultLocale;
+        
+        if ($locale === null || $locale === false) {
+            return null;
+        }
+        
+        if ( 
+            strpos($locale, '@') !== false || 
+            static::$defaultCalendar === null ||
+            $useCalender === false
+            ) {
+            return $locale;
+        }
+        
+        if ($useCalender === false && static::$defaultCalendar === null ) {
+            return $locale; 
+        }
+        
+        return $locale . '@calendar=' . static::$defaultCalendar;
+    } 
+       
     /**
      * Returns a string that should be serialized when converting this object to json
      *

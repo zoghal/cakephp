@@ -2184,8 +2184,8 @@ class FormHelper extends Helper
             'orderYear' => 'desc',
             'timeFormat' => 24,
             'second' => false,
-            'locale' => false,
-            'timezone' => false
+            'locale' => null,
+            'timezone' => null
         ];
         $options = $this->_initInputField($fieldName, $options);
         $options = $this->_datetimeOptions($options);
@@ -2247,28 +2247,21 @@ class FormHelper extends Helper
         }
         unset($options['interval'], $options['round']);
         
-        $options['localization'] = [
-            'locale' => Time::$defaultLocale?: ini_get('intl.default_locale'),
-            'timezone' => date_default_timezone_get()
-        ];
         
         if ($options['locale'] !== false) {
-            $options['localization']['locale'] = $options['locale'];
+            $options['locale'] = Time::getDefaultLocale($options['locale'], true);
         }
         
-        if ($options['timezone'] !== false) {
-            $options['localization']['timezone'] = $options['timezone'];
-        }
-        unset($options['locale'], $options['timezone']);
         
         if (!isset($options['val'])) {
             $val = new Time();
             $currentYear = $val->i18nFormat('yyyy');
             if (isset($options['year']['end']) && $options['year']['end'] < $currentYear) {
-                $val->setDate($options['year']['end'], $val->i18nFormat('M'), $val->i18nFormat('d'));
+                $val->setDate($options['year']['end'], $val->i18nFormat('m'), $val->i18nFormat('d'));
             }
             $options['val'] = $val;
         }
+
         return $options;
     }
 
@@ -2322,8 +2315,8 @@ class FormHelper extends Helper
             'minYear' => null,
             'maxYear' => null,
             'orderYear' => 'desc',
-            'locale' => false,
-            'timezone' => false
+            'locale' => null,
+            'timezone' => null
         ];
         $options['hour'] = $options['minute'] = false;
         $options['meridian'] = $options['second'] = false;

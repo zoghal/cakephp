@@ -52,7 +52,7 @@ class DateTimeType extends Type
      *
      * @var string|array|int
      */
-    protected $_localeFormat = 'yyyy-MM-dd hh:mm:ss';
+    protected $_localeFormat;
 
     /**
      * An instance of the configured dateTimeClass, used to quickly generate
@@ -172,12 +172,12 @@ class DateTimeType extends Type
             $value['minute'],
             $value['second']
         );
-
-        $timezone = null;
-        if (isset($value['localization'])) {
-            list($locale, $timezone) = explode(':', $value['localization']);
-            $format = $this->_parseValue($format, $timezone, $locale);
-        } 
+        $timezone = isset($value['timezone']) ? $value['timezone'] : null;
+        
+        if (isset($value['locale'])) {
+            $format = $this->_parseValue($format, $timezone, 'fa_IR@calendar=persian');
+        }
+        
         return new $class($format, $timezone);
     }
 
