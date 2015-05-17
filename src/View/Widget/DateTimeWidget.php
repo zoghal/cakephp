@@ -144,9 +144,9 @@ class DateTimeWidget implements WidgetInterface
             $method = "_{$select}Select";
             $data[$select]['name'] = $data['name'] . "[" . $select . "]";
             $data[$select]['val'] = $selected[$select];
-            $data[$select]['alias'] = $data['name'];
-            $data[$select] += $data['localization'];
-             
+            $data[$select]['localization'] = $data['localization'];
+            $data[$select]['localization']['alias'] = $data['name'];
+
             if (!isset($data[$select]['empty'])) {
                 $data[$select]['empty'] = $data['empty'];
             }
@@ -323,13 +323,13 @@ class DateTimeWidget implements WidgetInterface
      */
     protected function _yearSelect($options, $context)
     {
-        $date = new Time(null, $options['timezone']);
+        $date = new Time(null, $options['localization']['timezone']);
         $options += [
             'name' => '',
             'val' => null,
 
-            'start' => $date->subYears(5)->I18nFormat("yyyy", null, $options['baseLocale']),
-            'end' => $date->addYears(10)->I18nFormat("yyyy", null, $options['baseLocale']),
+            'start' => $date->subYears(5)->I18nFormat("yyyy", null, $options['localization']['baseLocale']),
+            'end' => $date->addYears(10)->I18nFormat("yyyy", null, $options['localization']['baseLocale']),
             'order' => 'desc',
             'options' => []
         ];
@@ -339,7 +339,7 @@ class DateTimeWidget implements WidgetInterface
             $options['end'] = max($options['val'], $options['end']);
         }
         if (empty($options['options'])) {
-            $options['options'] = $this->_generateNumbers($options['start'], $options['end'], ['locale' => $options['locale'] ]);
+            $options['options'] = $this->_generateNumbers($options['start'], $options['end'], ['locale' => $options['localization']['locale'] ]);
         }
         if ($options['order'] === 'desc') {
             $options['options'] = array_reverse($options['options'], true);
@@ -347,8 +347,7 @@ class DateTimeWidget implements WidgetInterface
         
         unset(
             $options['start'], $options['end'],
-            $options['order'], $options['locale'],
-            $options['timezone'], $options['baseLocale']
+            $options['order'], $options['localization']
         );
         
         return $this->_select->render($options, $context);
@@ -377,14 +376,13 @@ class DateTimeWidget implements WidgetInterface
             } elseif (is_array($options['names'])) {
                 $options['options'] = $options['names'];
             } else {
-                $options['options'] = $this->_generateNumbers(1, 12, $options);
+                $options['options'] = $this->_generateNumbers(1, 12, $options['localization']);
             }
         }
 
         unset(
             $options['leadingZeroKey'], $options['leadingZeroValue'],
-            $options['names'], $options['locale'],
-            $options['timezone'], $options['baseLocale']
+            $options['names'], $options['localization']
         );
         return $this->_select->render($options, $context);
     }
@@ -404,12 +402,11 @@ class DateTimeWidget implements WidgetInterface
             'leadingZeroKey' => true,
             'leadingZeroValue' => false,
         ];
-        $options['options'] = $this->_generateNumbers(1, 31, $options);
+        $options['options'] = $this->_generateNumbers(1, 31, $options['localization']);
 
         unset(
             $options['names'], $options['leadingZeroKey'],
-            $options['leadingZeroValue'], $options['locale'],
-            $options['timezone'], $options['baseLocale']
+            $options['leadingZeroValue'], $options['localization']
         );
         return $this->_select->render($options, $context);
     }
@@ -454,15 +451,14 @@ class DateTimeWidget implements WidgetInterface
             $options['options'] = $this->_generateNumbers(
                 $options['start'],
                 $options['end'],
-                $options
+                $options['localization']
             );
         }
 
         unset(
             $options['end'], $options['start'],
             $options['format'], $options['leadingZeroKey'],
-            $options['leadingZeroValue'], $options['locale'],
-            $options['timezone'], $options['baseLocale']
+            $options['leadingZeroValue'], $options['localization']
         );
         return $this->_select->render($options, $context);
     }
@@ -486,14 +482,13 @@ class DateTimeWidget implements WidgetInterface
         ];
         $options['interval'] = max($options['interval'], 1);
         if (empty($options['options'])) {
-            $options['options'] = $this->_generateNumbers(0, 59, $options);
+            $options['options'] = $this->_generateNumbers(0, 59, $options['localization']);
         }
 
         unset(
             $options['leadingZeroKey'], $options['leadingZeroValue'],
             $options['interval'], $options['round'],
-            $options['locale'], $options['timezone'],
-            $options['baseLocale']
+            $options['localization']
         );
         return $this->_select->render($options, $context);
     }
@@ -517,8 +512,7 @@ class DateTimeWidget implements WidgetInterface
 
         unset(
             $options['leadingZeroKey'], $options['leadingZeroValue'],
-            $options['locale'], $options['timezone'],
-            $options['baseLocale']
+            $options['localization']
         );
         return $this->_select->render($options, $context);
     }
@@ -552,12 +546,12 @@ class DateTimeWidget implements WidgetInterface
         $out = '';
         $template = '<input name="%s[%s]" value="%s" type="hidden">';
         
-        if ($options['locale'] !== null) {
-            $out = sprintf($template, $options['alias'], 'locale', $options['locale']);
+        if ($options['localization']['locale'] !== null) {
+            $out = sprintf($template, $options['localization']['alias'], 'locale', $options['localization']['locale']);
         }
         
-        if ($options['timezone'] !== null) {
-            $out = $out . sprintf($template, $options['alias'], 'timezone', $options['timezone']);
+        if ($options['localization']['timezone'] !== null) {
+            $out = $out . sprintf($template, $options['localization']['alias'], 'timezone', $options['localization']['timezone']);
         }
 
         return $out;
@@ -572,12 +566,12 @@ class DateTimeWidget implements WidgetInterface
      */
     protected function _getMonthNames($leadingZero = false, $options = null)
     {
-        $date = new Time(null, $options['timezone']);
+        $date = new Time(null, $options['localization']['timezone']);
         $months = [];
         for ($i = 1; $i <= 12; $i++) {
             $date->month($i);
-            $key = $date->i18nFormat("MM", null, $options['baseLocale']);
-            $val = $date->i18nFormat("MMMM", null, $options['locale']);
+            $key = $date->i18nFormat("MM", null, $options['localization']['baseLocale']);
+            $val = $date->i18nFormat("MMMM", null, $options['localization']['locale']);
             $months[$key] = trim($val);
         }
         
