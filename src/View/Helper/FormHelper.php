@@ -2281,6 +2281,8 @@ class FormHelper extends Helper
             'round' => null,
             'timeFormat' => 24,
             'second' => false,
+            'locale' => null,
+            'timezone' => null
         ];
         $options['year'] = $options['month'] = $options['day'] = false;
         $options = $this->_initInputField($fieldName, $options);
