@@ -2217,7 +2217,6 @@ class FormHelper extends Helper
                 $options[$type]['empty'] = $options['empty'][$type];
             }
         }
-        unset($options['empty']);
 
         $hasYear = is_array($options['year']);
         if ($hasYear && isset($options['minYear'])) {
@@ -2247,13 +2246,7 @@ class FormHelper extends Helper
         }
         unset($options['interval'], $options['round']);
         
-        
-        if ($options['locale'] !== false) {
-            $options['locale'] = Time::getDefaultLocale($options['locale'], true);
-        }
-        
-        
-        if (!isset($options['val'])) {
+        if ($options['val'] === true || $options['val'] === null && isset($options['empty']) && $options['empty'] === false) {
             $val = new Time();
             $currentYear = $val->i18nFormat('yyyy');
             if (isset($options['year']['end']) && $options['year']['end'] < $currentYear) {
@@ -2261,6 +2254,8 @@ class FormHelper extends Helper
             }
             $options['val'] = $val;
         }
+
+        unset($options['empty']);
 
         return $options;
     }
@@ -2286,6 +2281,8 @@ class FormHelper extends Helper
             'round' => null,
             'timeFormat' => 24,
             'second' => false,
+            'locale' => null,
+            'timezone' => null
         ];
         $options['year'] = $options['month'] = $options['day'] = false;
         $options = $this->_initInputField($fieldName, $options);

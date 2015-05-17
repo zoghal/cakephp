@@ -221,7 +221,7 @@ class DateTimeWidget implements WidgetInterface
             return [
                 'year' => '', 'month' => '', 'day' => '',
                 'hour' => '', 'minute' => '', 'second' => '',
-                'meridian' => '',
+                'meridian' => '', 'localization' => '',
             ];
         }
         try {
@@ -235,7 +235,7 @@ class DateTimeWidget implements WidgetInterface
                 $dateArray = [
                     'year' => '', 'month' => '', 'day' => '',
                     'hour' => '', 'minute' => '', 'second' => '',
-                    'meridian' => 'pm',
+                    'meridian' => 'pm', 'localization' => '',
                 ];
                 $validDate = false;
                 foreach ($dateArray as $key => $dateValue) {
