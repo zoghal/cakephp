@@ -32,11 +32,19 @@ class TimeType extends DateTimeType
     protected $_format = 'H:i:s';
 
     /**
+     * The time format to use for parsing incoming times for marshalling.
+     *
+     * @var string|array|int
+     */
+    protected $_localeFormat;
+
+    
+    /**
      * {@inheritDoc}
      */
-    protected function _parseValue($value)
+    protected function _parseValue($value, $timezone = null, $locale = null)
     {
         $class = static::$dateTimeClass;
-        return $class::parseTime($value, $this->_localeFormat);
+        return $class::parseTime($value, $this->_localeFormat, $timezone, $locale);
     }
 }

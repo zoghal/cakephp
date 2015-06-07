@@ -28,6 +28,13 @@ class DateType extends DateTimeType
     protected $_format = 'Y-m-d';
 
     /**
+     * The date format to use for parsing incoming dates for marshalling.
+     *
+     * @var string|array|int
+     */
+    protected $_localeFormat = 'yyyy-MM-dd';
+
+    /**
      * Convert request data into a datetime object.
      *
      * @param mixed $value Request data
@@ -61,9 +68,9 @@ class DateType extends DateTimeType
     /**
      * {@inheritDoc}
      */
-    protected function _parseValue($value)
+    protected function _parseValue($value, $timezone = null, $locale = null)
     {
         $class = static::$dateTimeClass;
-        return $class::parseDate($value, $this->_localeFormat);
+        return $class::parseDate($value, $this->_localeFormat, $timezone, $locale);
     }
 }
