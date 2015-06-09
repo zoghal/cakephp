@@ -898,6 +898,36 @@ class Time extends Carbon implements JsonSerializable
 
         return $locale . '@calendar=' . static::$defaultCalendar;
     }
+    /**
+     * Returns and convert Any format accepted by IntlDateFormatter
+     * 
+     * @param string|int $format Any format accepted by DateTime.
+     * @return string
+     */
+
+     public static function convertFormat($format = 'Y-m-d H:i:s') {
+       $tables = [
+            'd' => 'dd',    'j' => 'd',    'D' => 'EEE',   'l' => 'EEEE',
+            'F' => 'MMMM',  'M' => 'MMM',   'm' => 'MM',    'n' => 'M',
+            'Y' => 'yyyy',  'y' => 'yy',    'a' => 'a',     'A' => 'a',
+            'g' => 'h',     'h' => 'hh',    'G' => 'H',     'H' => 'HH',
+            'i' => 'mm',    's' => 'ss',    'e' => 'v',     'O' => 'xx',
+            'P' => 'xxx',   'T' => 'z', 
+       ];
+       $separator = '([- /.:;])';
+       $temp = array_flip(preg_split( $separator,$format));
+       $temp = new \Cake\Collection\Collection($temp);
+       $temp = $temp->map(function ($value, $key) use($tables){
+            return isset($tables[$key]) ? $tables[$key] : $key ;
+       }); 
+       $temp = $temp->toArray();
+       $temp = str_replace(
+            array_keys($temp),
+            array_values($temp),
+            $format
+        );
+       return $temp;
+    }
        
     /**
      * Returns a string that should be serialized when converting this object to json
