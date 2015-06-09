@@ -14,6 +14,7 @@
  */
 namespace Cake\Validation;
 
+use Cake\Event\EventDispatcherInterface;
 use Cake\Validation\Validator;
 
 /**
@@ -59,7 +60,7 @@ trait ValidatorAwareTrait
      * {
      *  return $validator
      *  ->add('email', 'valid-email', ['rule' => 'email'])
-     *  ->add('password', 'valid', ['rule' => 'notEmpty'])
+     *  ->add('password', 'valid', ['rule' => 'notBlank'])
      *  ->requirePresence('username');
      * }
      * ```
@@ -70,7 +71,7 @@ trait ValidatorAwareTrait
      * $validator = new \Cake\Validation\Validator($table);
      * $validator
      *  ->add('email', 'valid-email', ['rule' => 'email'])
-     *  ->add('password', 'valid', ['rule' => 'notEmpty'])
+     *  ->add('password', 'valid', ['rule' => 'notBlank'])
      *  ->allowEmpty('bio');
      * $table->validator('forSubscription', $validator);
      * ```
@@ -96,7 +97,7 @@ trait ValidatorAwareTrait
         if ($validator === null) {
             $validator = new Validator();
             $validator = $this->{'validation' . ucfirst($name)}($validator);
-            if (method_exists($this, 'dispatchEvent')) {
+            if ($this instanceof EventDispatcherInterface) {
                 $this->dispatchEvent('Model.buildValidator', compact('validator', 'name'));
             }
         }

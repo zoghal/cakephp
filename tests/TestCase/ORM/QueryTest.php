@@ -1862,6 +1862,24 @@ class QueryTest extends TestCase
     }
 
     /**
+     * Test containing associations that have empty conditions.
+     *
+     * @return void
+     */
+    public function testContainAssociationWithEmptyConditions()
+    {
+        $articles = TableRegistry::get('Articles');
+        $articles->belongsTo('Authors', [
+            'conditions' => function ($exp, $query) {
+                return $exp;
+            }
+        ]);
+        $query = $articles->find('all')->contain(['Authors']);
+        $result = $query->toArray();
+        $this->assertCount(3, $result);
+    }
+
+    /**
      * Tests the formatResults method
      *
      * @return void
@@ -2177,6 +2195,7 @@ class QueryTest extends TestCase
             });
 
         $expected = [
+            '(help)' => 'This is a Query object, to get the results execute or iterate it.',
             'sql' => $query->sql(),
             'params' => $query->valueBinder()->bindings(),
             'defaultTypes' => [

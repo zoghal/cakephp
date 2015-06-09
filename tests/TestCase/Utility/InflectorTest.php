@@ -180,6 +180,28 @@ class InflectorTest extends TestCase
     }
 
     /**
+     * Test that overlapping irregulars don't collide.
+     *
+     * @return void
+     */
+    public function testSingularizeMultiWordIrregular()
+    {
+        Inflector::rules('irregular', [
+            'pregunta_frecuente' => 'preguntas_frecuentes',
+            'categoria_pregunta_frecuente' => 'categorias_preguntas_frecuentes',
+        ]);
+        $this->assertEquals('pregunta_frecuente', Inflector::singularize('preguntas_frecuentes'));
+        $this->assertEquals(
+            'categoria_pregunta_frecuente',
+            Inflector::singularize('categorias_preguntas_frecuentes')
+        );
+        $this->assertEquals(
+            'faq_categoria_pregunta_frecuente',
+            Inflector::singularize('faq_categorias_preguntas_frecuentes')
+        );
+    }
+
+    /**
      * testInflectingPlurals method
      *
      * @return void
@@ -256,6 +278,28 @@ class InflectorTest extends TestCase
         $this->assertEquals('sieves', Inflector::pluralize('sieve'));
         $this->assertEquals('blue_octopuses', Inflector::pluralize('blue_octopus'));
         $this->assertEquals('', Inflector::pluralize(''));
+    }
+
+    /**
+     * Test that overlapping irregulars don't collide.
+     *
+     * @return void
+     */
+    public function testPluralizeMultiWordIrregular()
+    {
+        Inflector::rules('irregular', [
+            'pregunta_frecuente' => 'preguntas_frecuentes',
+            'categoria_pregunta_frecuente' => 'categorias_preguntas_frecuentes',
+        ]);
+        $this->assertEquals('preguntas_frecuentes', Inflector::pluralize('pregunta_frecuente'));
+        $this->assertEquals(
+            'categorias_preguntas_frecuentes',
+            Inflector::pluralize('categoria_pregunta_frecuente')
+        );
+        $this->assertEquals(
+            'faq_categorias_preguntas_frecuentes',
+            Inflector::pluralize('faq_categoria_pregunta_frecuente')
+        );
     }
 
     /**
@@ -408,12 +452,14 @@ class InflectorTest extends TestCase
         $this->assertSame('test_thing_extra', Inflector::underscore('TestThingExtra'));
         $this->assertSame('test_thing_extra', Inflector::underscore('testThingExtra'));
         $this->assertSame('test_this_thing', Inflector::underscore('test-this-thing'));
+        $this->assertSame(Inflector::underscore('testThingExtrå'), 'test_thing_extrå');
 
         // Identical checks test the cache code path.
         $this->assertSame('test_thing', Inflector::underscore('TestThing'));
         $this->assertSame('test_thing', Inflector::underscore('testThing'));
         $this->assertSame('test_thing_extra', Inflector::underscore('TestThingExtra'));
         $this->assertSame('test_thing_extra', Inflector::underscore('testThingExtra'));
+        $this->assertSame(Inflector::underscore('testThingExtrå'), 'test_thing_extrå');
 
         // Test stupid values
         $this->assertSame('', Inflector::underscore(''));
@@ -514,6 +560,8 @@ class InflectorTest extends TestCase
         $this->assertEquals('File Systems', Inflector::humanize('file_systems'));
         $this->assertSame('', Inflector::humanize(null));
         $this->assertSame('', Inflector::humanize(false));
+        $this->assertSame(Inflector::humanize('hello_wörld'), 'Hello Wörld');
+        $this->assertSame(Inflector::humanize('福岡_city'), '福岡 City');
     }
 
     /**

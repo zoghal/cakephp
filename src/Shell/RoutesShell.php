@@ -34,12 +34,13 @@ class RoutesShell extends Shell
      */
     public function main()
     {
-        $output = [];
+        $output = [
+            ['Route name', 'URI template', 'Defaults']
+        ];
         foreach (Router::routes() as $route) {
             $output[] = [$route->getName(), $route->template, json_encode($route->defaults)];
         }
-
-        $this->_outWithColumns($output);
+        $this->helper('table')->output($output);
     }
 
     /**
@@ -52,7 +53,11 @@ class RoutesShell extends Shell
     {
         try {
             $route = Router::parse($url);
-            $this->_outWithColumns(['', $url, json_encode($route)]);
+            $output = [
+                ['Route name', 'URI template', 'Defaults'],
+                ['', $url, json_encode($route)]
+            ];
+            $this->helper('table')->output($output);
         } catch (MissingRouteException $e) {
             $this->err("<warning>'$url' did not match any routes.</warning>");
             return false;
@@ -92,7 +97,7 @@ class RoutesShell extends Shell
             'help' => 'Check a URL string against the routes. ' .
                 'Will output the routing parameters the route resolves to.'
         ])->addSubcommand('generate', [
-            'help' => 'Check a routing array agains the routes. ' .
+            'help' => 'Check a routing array against the routes. ' .
                 "Will output the URL if there is a match.\n\n" .
                 "Routing parameters should be supplied in a key:value format. " .
                 "For example `controller:Articles action:view 2`"
@@ -118,39 +123,5 @@ class RoutesShell extends Shell
             }
         }
         return $out;
-    }
-
-    /**
-     * Takes an array to represent rows, of arrays to represent columns.
-     * Will pad strings to the maximum character length of each column.
-     *
-     * @param array $rows The rows to print
-     * @return void
-     */
-    protected function _outWithColumns($rows)
-    {
-        if (!is_array($rows[0])) {
-            $rows = [$rows];
-        }
-        $maxCharacterLength = [];
-        array_unshift($rows, ['Route name', 'URI template', 'Defaults']);
-
-        foreach ($rows as $line) {
-            for ($i = 0, $len = count($line); $i < $len; $i++) {
-                $elementLength = strlen($line[$i]);
-                if ($elementLength > (isset($maxCharacterLength[$i]) ? $maxCharacterLength[$i] : 0)) {
-                    $maxCharacterLength[$i] = $elementLength;
-                }
-            }
-        }
-
-        foreach ($rows as $line) {
-            for ($i = 0, $len = count($line); $i < $len; $i++) {
-                $line[$i] = str_pad($line[$i], $maxCharacterLength[$i], " ", STR_PAD_RIGHT);
-            }
-            $this->out(implode('    ', $line));
-        }
-
-        $this->out();
     }
 }

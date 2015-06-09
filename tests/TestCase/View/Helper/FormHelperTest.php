@@ -3633,12 +3633,12 @@ class FormHelperTest extends TestCase
     public function testErrorMultipleMessages()
     {
         $this->article['errors'] = [
-            'field' => ['notEmpty', 'email', 'Something else']
+            'field' => ['notBlank', 'email', 'Something else']
         ];
         $this->Form->create($this->article);
 
         $result = $this->Form->error('field', [
-            'notEmpty' => 'Cannot be empty',
+            'notBlank' => 'Cannot be empty',
             'email' => 'No good!'
         ]);
         $expected = [
@@ -5830,6 +5830,28 @@ class FormHelperTest extends TestCase
     }
 
     /**
+     * Test minYear being prior to the unix epoch
+     *
+     * @return void
+     */
+    public function testInputDatetimePreEpoch()
+    {
+        $start = date('Y') - 80;
+        $end = date('Y') - 18;
+        $result = $this->Form->input('birth_year', [
+            'type' => 'date',
+            'label' => 'Birth Year',
+            'minYear' => $start,
+            'maxYear' => $end,
+            'month' => false,
+            'day' => false,
+        ]);
+        $this->assertContains('value="' . $start . '">' . $start, $result);
+        $this->assertContains('value="' . $end . '" selected="selected">' . $end, $result);
+        $this->assertNotContains('value="00">00', $result);
+    }
+
+    /**
      * testYearAutoExpandRange method
      *
      * @return void
@@ -5922,6 +5944,9 @@ class FormHelperTest extends TestCase
             'default' => true
         ]);
         $this->assertContains('value="2008" selected="selected"', $result);
+        $this->assertContains('value="2006"', $result);
+        $this->assertNotContains('value="2005"', $result);
+        $this->assertNotContains('value="2009"', $result);
     }
 
     /**
@@ -6315,6 +6340,31 @@ class FormHelperTest extends TestCase
             'input' => ['type' => 'hidden', 'name' => '_method', 'value' => 'POST'],
             '/form',
             'a' => ['class' => 'btn btn-danger', 'href' => '#', 'onclick' => 'preg:/if \(confirm\(\&quot\;Confirm thing\&quot\;\)\) \{ document\.post_\w+\.submit\(\); \} event\.returnValue = false; return false;/'],
+            '/a'
+        ];
+        $this->assertHtml($expected, $result);
+    }
+
+    /**
+     * test postLink() with query string args.
+     *
+     * @return void
+     */
+    public function testPostLinkWithQuery()
+    {
+        $result = $this->Form->postLink(
+            'Delete',
+            ['controller' => 'posts', 'action' => 'delete', 1, '?' => ['a' => 'b', 'c' => 'd']]
+        );
+        $expected = [
+            'form' => [
+                'method' => 'post', 'action' => '/posts/delete/1?a=b&amp;c=d',
+                'name' => 'preg:/post_\w+/', 'style' => 'display:none;'
+            ],
+            'input' => ['type' => 'hidden', 'name' => '_method', 'value' => 'POST'],
+            '/form',
+            'a' => ['href' => '#', 'onclick' => 'preg:/document\.post_\w+\.submit\(\); event\.returnValue = false; return false;/'],
+            'Delete',
             '/a'
         ];
         $this->assertHtml($expected, $result);

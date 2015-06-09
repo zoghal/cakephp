@@ -839,4 +839,43 @@ class QueryRegressionTest extends TestCase
             ->toList();
         $this->assertEquals([2], $results);
     }
+
+    /**
+     * Tests that using a subquery as part of an expression will not make invalid SQL
+     *
+     * @return void
+     */
+    public function testSubqueryInSelectExpression()
+    {
+        $table = TableRegistry::get('Comments');
+        $ratio = $table->find()
+            ->select(function ($query) use ($table) {
+                $allCommentsCount = $table->find()->select($query->func()->count('*'));
+                $countToFloat = $query->newExpr([$query->func()->count('*'), '1.0'])->type('*');
+                return [
+                    'ratio' => $query
+                        ->newExpr($countToFloat)
+                        ->add($allCommentsCount)
+                        ->type('/')
+                ];
+            })
+            ->where(['user_id' => 1])
+            ->first()
+            ->ratio;
+        $this->assertEquals(0.5, $ratio);
+    }
+
+    /**
+     * Tests calling last on an empty table
+     *
+     * @see https://github.com/cakephp/cakephp/issues/6683
+     * @return void
+     */
+    public function testFindLastOnEmptyTable()
+    {
+        $table = TableRegistry::get('Comments');
+        $table->deleteAll(['1 = 1']);
+        $this->assertEquals(0, $table->find()->count());
+        $this->assertNull($table->find()->last());
+    }
 }

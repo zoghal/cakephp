@@ -759,7 +759,7 @@ class Time extends Carbon implements JsonSerializable
         );
 
         $time = $formatter->parse($time);
-        
+        if ($time && $formatter->getErrorCode() !== 0) {
         if ($formatter->getErrorCode() !== 0) {
             $result = new static('@' . $time);
             $result->setTimezone($tz);
@@ -850,9 +850,9 @@ class Time extends Carbon implements JsonSerializable
     }
 
     /**
-     * Sets the default calendar used when need when converting date to locale.
+     * Sets the default locale used when need when converting date to locale.
      *
-     * @param string $calendar name.
+     * @param string $calendar set calendar name.
      * @return void
      */
     public static function setDefaultCalendar($calendar)
@@ -863,7 +863,7 @@ class Time extends Carbon implements JsonSerializable
     /**
      * Sets the default locale used when need when converting date to locale.
      *
-     * @param string $locale The locale name in which the date should be parsed.
+     * @param string|null $locale The locale name in which the date should be displayed (e.g. pt-BR)
      * @return void
      */
     public static function setDefaultLocale($locale)
@@ -874,8 +874,8 @@ class Time extends Carbon implements JsonSerializable
     /**
      * Returns current locale is setted.
      *
-     * @param string $locale The locale name in which the date should be parsed.
-     * @param bool $useCalender can use default Calendar is setted.
+     * @param string|null $locale The locale name in which the date should be displayed (e.g. pt-BR)
+     * @param bool $useCalender can use default calendar name
      * @return static|null
      */
     public static function getDefaultLocale($locale = null, $useCalender = false)
@@ -895,7 +895,7 @@ class Time extends Carbon implements JsonSerializable
         if ($useCalender === false && static::$defaultCalendar === null) {
             return $locale;
         }
-        
+
         return $locale . '@calendar=' . static::$defaultCalendar;
     }
        

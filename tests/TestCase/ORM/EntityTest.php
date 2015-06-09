@@ -72,6 +72,29 @@ class EntityTest extends TestCase
     }
 
     /**
+     * Test that getOriginal() retains falsey values.
+     *
+     * @return void
+     */
+    public function testGetOriginal()
+    {
+        $entity = new Entity(
+            ['false' => false, 'null' => null, 'zero' => 0, 'empty' => ''],
+            ['markNew' => true]
+        );
+        $this->assertNull($entity->getOriginal('null'));
+        $this->assertFalse($entity->getOriginal('false'));
+        $this->assertSame(0, $entity->getOriginal('zero'));
+        $this->assertSame('', $entity->getOriginal('empty'));
+
+        $entity->set(['false' => 'y', 'null' => 'y', 'zero' => 'y', 'empty' => '']);
+        $this->assertNull($entity->getOriginal('null'));
+        $this->assertFalse($entity->getOriginal('false'));
+        $this->assertSame(0, $entity->getOriginal('zero'));
+        $this->assertSame('', $entity->getOriginal('empty'));
+    }
+
+    /**
      * Test extractOriginal()
      *
      * @return void
@@ -81,18 +104,20 @@ class EntityTest extends TestCase
         $entity = new Entity([
             'id' => 1,
             'title' => 'original',
-            'body' => 'no'
+            'body' => 'no',
+            'null' => null,
         ], ['markNew' => true]);
         $entity->set('body', 'updated body');
-        $result = $entity->extractOriginal(['id', 'title', 'body']);
+        $result = $entity->extractOriginal(['id', 'title', 'body', 'null']);
         $expected = [
             'id' => 1,
             'title' => 'original',
-            'body' => 'no'
+            'body' => 'no',
+            'null' => null,
         ];
         $this->assertEquals($expected, $result);
 
-        $result = $entity->extractOriginalChanged(['id', 'title', 'body']);
+        $result = $entity->extractOriginalChanged(['id', 'title', 'body', 'null']);
         $expected = [
             'body' => 'no',
         ];
@@ -227,7 +252,8 @@ class EntityTest extends TestCase
     public function testGetCustomGetters()
     {
         $entity = $this->getMock('\Cake\ORM\Entity', ['_getName']);
-        $entity->expects($this->once())->method('_getName')
+        $entity->expects($this->any())
+            ->method('_getName')
             ->with('Jones')
             ->will($this->returnCallback(function ($name) {
                 return 'Dr. ' . $name;
@@ -245,7 +271,8 @@ class EntityTest extends TestCase
     public function testGetCustomGettersAfterSet()
     {
         $entity = $this->getMock('\Cake\ORM\Entity', ['_getName']);
-        $entity->expects($this->exactly(2))->method('_getName')
+        $entity->expects($this->any())
+            ->method('_getName')
             ->will($this->returnCallback(function ($name) {
                 return 'Dr. ' . $name;
             }));
@@ -275,28 +302,6 @@ class EntityTest extends TestCase
 
         $entity->unsetProperty('name');
         $this->assertEquals('Dr. ', $entity->get('name'));
-    }
-
-    /**
-     * Tests that the get cache is cleared by setting any property.
-     * This is because virtual properties can often rely on other
-     * properties in the entity.
-     *
-     * @return void
-     */
-    public function testGetCacheClearedBySet()
-    {
-        $entity = $this->getMock('\Cake\ORM\Entity', ['_getName']);
-        $entity->last_name = 'Smith';
-        $entity->name = 'John';
-        $entity->expects($this->any())->method('_getName')
-            ->will($this->returnCallback(function ($name) use ($entity) {
-                return 'Dr. ' . $name . ' ' . $entity->last_name;
-            }));
-        $this->assertEquals('Dr. John Smith', $entity->get('name'));
-
-        $entity->last_name = 'Jones';
-        $this->assertEquals('Dr. John Jones', $entity->get('name'));
     }
 
     /**
@@ -1163,6 +1168,7 @@ class EntityTest extends TestCase
     public function testDebugInfo()
     {
         $entity = new Entity(['foo' => 'bar'], ['markClean' => true]);
+        $entity->somethingElse = 'value';
         $entity->accessible('name', true);
         $entity->virtualProperties(['baz']);
         $entity->dirty('foo', true);
@@ -1170,14 +1176,15 @@ class EntityTest extends TestCase
         $entity->source('foos');
         $result = $entity->__debugInfo();
         $expected = [
-            'new' => true,
-            'accessible' => ['*' => true, 'name' => true],
-            'properties' => ['foo' => 'bar'],
-            'dirty' => ['foo' => true],
-            'original' => [],
-            'virtual' => ['baz'],
-            'errors' => ['foo' => ['An error']],
-            'repository' => 'foos'
+            'foo' => 'bar',
+            'somethingElse' => 'value',
+            '[new]' => true,
+            '[accessible]' => ['*' => true, 'name' => true],
+            '[dirty]' => ['somethingElse' => true, 'foo' => true],
+            '[original]' => [],
+            '[virtual]' => ['baz'],
+            '[errors]' => ['foo' => ['An error']],
+            '[repository]' => 'foos'
         ];
         $this->assertSame($expected, $result);
     }
