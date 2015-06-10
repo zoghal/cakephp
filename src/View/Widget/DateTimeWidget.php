@@ -327,7 +327,7 @@ class DateTimeWidget implements WidgetInterface
     {
         $date = new Time(null, $options['localization']['timezone']);
 
-        if(is_string($options['val'] && !empty($options['val']))) {
+        if (is_string($options['val'] && !empty($options['val']))) {
             $date->year($options['val']);
         }
 
@@ -542,7 +542,7 @@ class DateTimeWidget implements WidgetInterface
             ]
         ];
 
-        unset($options['localization']);        
+        unset($options['localization']);
         return $this->_select->render($options, $context);
     }
 

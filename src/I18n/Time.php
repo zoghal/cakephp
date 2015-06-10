@@ -708,9 +708,6 @@ class Time extends Carbon implements JsonSerializable
         static::$_toStringFormat = $format;
     }
 
-    public function fo1rmat($format = null){
-        return parent::format(self::convertPattern($format));
-    }
     /**
      * Returns a new Time object after parsing the provided time string based on
      * the passed or configured date time format. This method is locale dependent,
@@ -905,56 +902,33 @@ class Time extends Carbon implements JsonSerializable
  
     /**
      * Returns and convert DateTime pattern to Intl pattern
-     * 
+     *
      * @param string|int $pattern Any format accepted by DateTime pattern.
      * @return string
      */
-
      public static function convertPattern($pattern = 'Y-m-d H:i:s')
      {
-       if(!is_string($pattern) || $pattern === null ) {
-        return $pattern;
-       }
+        if (!is_string($pattern) || $pattern === null) {
+            return $pattern;
+        }
        
-       $tables = [
-            'd' => 'dd',
-            'j' => 'd',
-            'D' => 'EEE',
-            'l' => 'EEEE',
-            
-            'F' => 'MMMM',
-            'M' => 'MMM',
-            'm' => 'MM',
-            'n' => 'M',
-            
-            'Y' => 'yyyy',
-            'y' => 'yy',
-            'a' => 'a',
-            'A' => 'a',
-            
-            'g' => 'h',
-            'h' => 'hh',
-            'G' => 'H',
-            'H' => 'HH',
-            
-            'i' => 'mm',
-            's' => 'ss',
-            'e' => 'v',
-            'O' => 'xx',
-            'P' => 'xxx',
-            'T' => 'z', 
-            'U' => 'A', 
-            
-       ];
-       $separator = '([- /.:,;])';
-       $temp = array_flip(preg_split($separator, $pattern));
-       $temp = new \Cake\Collection\Collection($temp);
-       $temp = $temp->map(function($value, $key) use($tables){
+        $tables = [
+            'd' => 'dd', 'j' => 'd', 'D' => 'EEE', 'l' => 'EEEE',
+            'F' => 'MMMM', 'M' => 'MMM', 'm' => 'MM', 'n' => 'M',
+            'Y' => 'yyyy', 'y' => 'yy', 'a' => 'a', 'A' => 'a',
+            'g' => 'h', 'h' => 'hh', 'G' => 'H', 'H' => 'HH',
+            'i' => 'mm', 's' => 'ss', 'e' => 'v', 'O' => 'xx',
+            'P' => 'xxx', 'T' => 'z', 'U' => 'A',
+        ];
+        $separator = '([- /.:,;])';
+        $temp = array_flip(preg_split($separator, $pattern));
+        $temp = new \Cake\Collection\Collection($temp);
+        $temp = $temp->map( function($value, $key) use($tables) {
             return isset($tables[$key])? $tables[$key] : $key ;
-       }); 
-       $temp = $temp->toArray();
-       $temp = str_replace(array_keys($temp), array_values($temp), $pattern);
-       return $temp;
+        }); 
+        $temp = $temp->toArray();
+        $temp = str_replace(array_keys($temp), array_values($temp), $pattern);
+        return $temp;
     }
     
     /**
