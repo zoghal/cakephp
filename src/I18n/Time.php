@@ -906,8 +906,8 @@ class Time extends Carbon implements JsonSerializable
      * @param string|int $pattern Any format accepted by DateTime pattern.
      * @return string
      */
-     public static function convertPattern($pattern = 'Y-m-d H:i:s')
-     {
+    public static function convertPattern($pattern = 'Y-m-d H:i:s')
+    {
         if (!is_string($pattern) || $pattern === null) {
             return $pattern;
         }
@@ -923,14 +923,14 @@ class Time extends Carbon implements JsonSerializable
         $separator = '([- /.:,;])';
         $temp = array_flip(preg_split($separator, $pattern));
         $temp = new \Cake\Collection\Collection($temp);
-        $temp = $temp->map( function($value, $key) use($tables) {
-            return isset($tables[$key])? $tables[$key] : $key ;
-        }); 
+        $temp = $temp->map(function ($value, $key) use ($tables) {
+            return isset($tables[$key])? $tables[$key] : $key;
+        });
         $temp = $temp->toArray();
         $temp = str_replace(array_keys($temp), array_values($temp), $pattern);
         return $temp;
     }
-    
+
     /**
      * Returns a string that should be serialized when converting this object to json
      *
