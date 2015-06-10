@@ -610,6 +610,7 @@ class Time extends Carbon implements JsonSerializable
         
         $calendar = $this->detectCalendarType($locale);
         $timezone = $date->getTimezone()->getName();
+        $pattern = self::convertPattern($pattern);
         $key = "{$locale}.{$dateFormat}.{$timeFormat}.{$timezone}.{$calendar}.{$pattern}";
 
         if (!isset(static::$_formatters[$key])) {
@@ -707,6 +708,9 @@ class Time extends Carbon implements JsonSerializable
         static::$_toStringFormat = $format;
     }
 
+    public function fo1rmat($format = null){
+        return parent::format(self::convertPattern($format));
+    }
     /**
      * Returns a new Time object after parsing the provided time string based on
      * the passed or configured date time format. This method is locale dependent,
@@ -748,8 +752,8 @@ class Time extends Carbon implements JsonSerializable
             $pattern = $dateFormat;
             $dateFormat = null;
         }
-
-        $formatter = datefmt_create(
+        
+        $formatter = new \IntlDateFormatter(
             $localeFormat,
             $dateFormat,
             $timeFormat,
@@ -759,8 +763,8 @@ class Time extends Carbon implements JsonSerializable
         );
 
         $time = $formatter->parse($time);
-        if ($time && $formatter->getErrorCode() !== 0) {
-        if ($formatter->getErrorCode() !== 0) {
+
+        if ($time) {
             $result = new static('@' . $time);
             $result->setTimezone($tz);
             return $result;
@@ -898,37 +902,61 @@ class Time extends Carbon implements JsonSerializable
 
         return $locale . '@calendar=' . static::$defaultCalendar;
     }
+ 
     /**
-     * Returns and convert Any format accepted by IntlDateFormatter
+     * Returns and convert DateTime pattern to Intl pattern
      * 
-     * @param string|int $format Any format accepted by DateTime.
+     * @param string|int $pattern Any format accepted by DateTime pattern.
      * @return string
      */
 
-     public static function convertFormat($format = 'Y-m-d H:i:s') {
+     public static function convertPattern($pattern = 'Y-m-d H:i:s')
+     {
+       if(!is_string($pattern) || $pattern === null ) {
+        return $pattern;
+       }
+       
        $tables = [
-            'd' => 'dd',    'j' => 'd',    'D' => 'EEE',   'l' => 'EEEE',
-            'F' => 'MMMM',  'M' => 'MMM',   'm' => 'MM',    'n' => 'M',
-            'Y' => 'yyyy',  'y' => 'yy',    'a' => 'a',     'A' => 'a',
-            'g' => 'h',     'h' => 'hh',    'G' => 'H',     'H' => 'HH',
-            'i' => 'mm',    's' => 'ss',    'e' => 'v',     'O' => 'xx',
-            'P' => 'xxx',   'T' => 'z', 
+            'd' => 'dd',
+            'j' => 'd',
+            'D' => 'EEE',
+            'l' => 'EEEE',
+            
+            'F' => 'MMMM',
+            'M' => 'MMM',
+            'm' => 'MM',
+            'n' => 'M',
+            
+            'Y' => 'yyyy',
+            'y' => 'yy',
+            'a' => 'a',
+            'A' => 'a',
+            
+            'g' => 'h',
+            'h' => 'hh',
+            'G' => 'H',
+            'H' => 'HH',
+            
+            'i' => 'mm',
+            's' => 'ss',
+            'e' => 'v',
+            'O' => 'xx',
+            'P' => 'xxx',
+            'T' => 'z', 
+            'U' => 'A', 
+            
        ];
-       $separator = '([- /.:;])';
-       $temp = array_flip(preg_split( $separator,$format));
+       $separator = '([- /.:,;])';
+       $temp = array_flip(preg_split($separator, $pattern));
        $temp = new \Cake\Collection\Collection($temp);
-       $temp = $temp->map(function ($value, $key) use($tables){
-            return isset($tables[$key]) ? $tables[$key] : $key ;
+       $temp = $temp->map(function($value, $key) use($tables){
+            return isset($tables[$key])? $tables[$key] : $key ;
        }); 
        $temp = $temp->toArray();
-       $temp = str_replace(
-            array_keys($temp),
-            array_values($temp),
-            $format
-        );
+       $temp = str_replace(array_keys($temp), array_values($temp), $pattern);
        return $temp;
     }
-       
+    
     /**
      * Returns a string that should be serialized when converting this object to json
      *

@@ -181,7 +181,9 @@ class DateTimeWidget implements WidgetInterface
             'minute' => [],
             'second' => [],
             'meridian' => null,
-            'localization' => ['locale' => null, 'baseLocale' => null, 'timezone' => null]
+            'localization' => [ 'baseLocale' => null],
+            'locale' => null,
+            'timezone' => null
         ];
 
         $timeFormat = isset($data['hour']['format']) ? $data['hour']['format'] : null;
@@ -285,7 +287,7 @@ class DateTimeWidget implements WidgetInterface
             'hour' => $date->I18nFormat('HH', $tz, $locale),
             'minute' => $date->I18nFormat('mm', $tz, $locale),
             'second' => $date->I18nFormat('ss', $tz, $locale),
-            'meridian' => $date->I18nFormat('a', $tz, $locale),
+            'meridian' => strtolower($date->I18nFormat('a', $tz, $locale)),
             'localization' => null
         ];
     }
@@ -324,10 +326,14 @@ class DateTimeWidget implements WidgetInterface
     protected function _yearSelect($options, $context)
     {
         $date = new Time(null, $options['localization']['timezone']);
+
+        if(is_string($options['val'] && !empty($options['val']))) {
+            $date->year($options['val']);
+        }
+
         $options += [
             'name' => '',
             'val' => null,
-
             'start' => $date->subYears(5)->I18nFormat("yyyy", null, $options['localization']['baseLocale']),
             'end' => $date->addYears(10)->I18nFormat("yyyy", null, $options['localization']['baseLocale']),
             'order' => 'desc',
@@ -339,7 +345,7 @@ class DateTimeWidget implements WidgetInterface
             $options['end'] = max($options['val'], $options['end']);
         }
         if (empty($options['options'])) {
-            $options['options'] = $this->_generateNumbers($options['start'], $options['end'], ['locale' => $options['localization']['locale'] ]);
+            $options['options'] = $this->_generateNumbers($options['start'], $options['end'], $options);
         }
         if ($options['order'] === 'desc') {
             $options['options'] = array_reverse($options['options'], true);
@@ -376,7 +382,7 @@ class DateTimeWidget implements WidgetInterface
             } elseif (is_array($options['names'])) {
                 $options['options'] = $options['names'];
             } else {
-                $options['options'] = $this->_generateNumbers(1, 12, $options['localization']);
+                $options['options'] = $this->_generateNumbers(1, 12, $options);
             }
         }
 
@@ -402,7 +408,7 @@ class DateTimeWidget implements WidgetInterface
             'leadingZeroKey' => true,
             'leadingZeroValue' => false,
         ];
-        $options['options'] = $this->_generateNumbers(1, 31, $options['localization']);
+        $options['options'] = $this->_generateNumbers(1, 31, $options);
 
         unset(
             $options['names'], $options['leadingZeroKey'],
@@ -451,7 +457,7 @@ class DateTimeWidget implements WidgetInterface
             $options['options'] = $this->_generateNumbers(
                 $options['start'],
                 $options['end'],
-                $options['localization']
+                $options
             );
         }
 
@@ -482,7 +488,7 @@ class DateTimeWidget implements WidgetInterface
         ];
         $options['interval'] = max($options['interval'], 1);
         if (empty($options['options'])) {
-            $options['options'] = $this->_generateNumbers(0, 59, $options['localization']);
+            $options['options'] = $this->_generateNumbers(0, 59, $options);
         }
 
         unset(
@@ -507,7 +513,7 @@ class DateTimeWidget implements WidgetInterface
             'val' => null,
             'leadingZeroKey' => true,
             'leadingZeroValue' => true,
-            'options' => $this->_generateNumbers(0, 59)
+            'options' => $this->_generateNumbers(0, 59, $options)
         ];
 
         unset(
@@ -526,11 +532,17 @@ class DateTimeWidget implements WidgetInterface
      */
     protected function _meridianSelect($options, $context)
     {
+        $date = new Time('09:00:00', $options['localization']['timezone']);
         $options += [
             'name' => '',
             'val' => null,
-            'options' => ['am' => 'am', 'pm' => 'pm']
+            'options' => [
+                'am' => $date->i18nFormat('a'),
+                'pm' => $date->addHours(12)->i18nFormat('a')
+            ]
         ];
+
+        unset($options['localization']);        
         return $this->_select->render($options, $context);
     }
 
@@ -622,13 +634,14 @@ class DateTimeWidget implements WidgetInterface
             if ($options['leadingZeroValue'] === true) {
                 $value = sprintf('%02d', $value);
             }
-            if (isset($options['locale'])) {
-                $value = \Cake\I18n\Number::format($value, ['locale' => $options['locale'], 'pattern' => '####']);
+            
+            if ($options['localization']['locale'] !== null) {
+                $value = \Cake\I18n\Number::format($value, ['locale' => $options['localization']['locale'], 'pattern' => '####']);
             }
             $numbers[$key] = $value;
             $i += $options['interval'];
         }
-        
+
         return $numbers;
     }
 
