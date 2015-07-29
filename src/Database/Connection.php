@@ -123,9 +123,7 @@ class Connection implements ConnectionInterface
     }
 
     /**
-     * Get the configuration data used to create the connection.
-     *
-     * @return array
+     * {@inheritDoc}
      */
     public function config()
     {
@@ -133,9 +131,7 @@ class Connection implements ConnectionInterface
     }
 
     /**
-     * Get the configuration name for this connection.
-     *
-     * @return string
+     * {@inheritDoc}
      */
     public function configName()
     {
@@ -238,7 +234,7 @@ class Connection implements ConnectionInterface
      */
     public function execute($query, array $params = [], array $types = [])
     {
-        if ($params) {
+        if (!empty($params)) {
             $statement = $this->prepare($query);
             $statement->bind($params, $types);
             $statement->execute();
@@ -326,7 +322,7 @@ class Connection implements ConnectionInterface
     /**
      * Executes an INSERT query on the specified table.
      *
-     * @param string $table the table to update values in
+     * @param string $table the table to insert values in
      * @param array $data values to be inserted
      * @param array $types list of associative array containing the types to be used for casting
      * @return \Cake\Database\StatementInterface
@@ -343,7 +339,7 @@ class Connection implements ConnectionInterface
     /**
      * Executes an UPDATE statement on the specified table.
      *
-     * @param string $table the table to delete rows from
+     * @param string $table the table to update rows from
      * @param array $data values to be updated
      * @param array $conditions conditions to be set for update statement
      * @param array $types list of associative array containing the types to be used for casting
@@ -533,13 +529,7 @@ class Connection implements ConnectionInterface
     }
 
     /**
-     * Executes a callable function inside a transaction, if any exception occurs
-     * while executing the passed callable, the transaction will be rolled back
-     * If the result of the callable function is ``false``, the transaction will
-     * also be rolled back. Otherwise the transaction is committed after executing
-     * the callback.
-     *
-     * The callback will receive the connection instance as its first argument.
+     * {@inheritDoc}
      *
      * ### Example:
      *
@@ -548,11 +538,6 @@ class Connection implements ConnectionInterface
      *   $connection->newQuery()->delete('users')->execute();
      * });
      * ```
-     *
-     * @param callable $callback the code to be executed inside a transaction
-     * @return mixed result from the $callback function
-     * @throws \Exception Will re-throw any exception raised in $callback after
-     *   rolling back the transaction.
      */
     public function transactional(callable $callback)
     {
@@ -575,9 +560,35 @@ class Connection implements ConnectionInterface
     }
 
     /**
+     * {@inheritDoc}
+     *
+     * ### Example:
+     *
+     * ```
+     * $connection->disableConstraints(function ($connection) {
+     *   $connection->newQuery()->delete('users')->execute();
+     * });
+     * ```
+     */
+    public function disableConstraints(callable $callback)
+    {
+        $this->disableForeignKeys();
+
+        try {
+            $result = $callback($this);
+        } catch (\Exception $e) {
+            $this->enableForeignKeys();
+            throw $e;
+        }
+
+        $this->enableForeignKeys();
+        return $result;
+    }
+
+    /**
      * Checks if a transaction is running.
      *
-     * @return bool True if a transaction is runnning else false.
+     * @return bool True if a transaction is running else false.
      */
     public function inTransaction()
     {
@@ -620,21 +631,6 @@ class Connection implements ConnectionInterface
     }
 
     /**
-     * Enables or disables query logging for this connection.
-     *
-     * @param bool $enable whether to turn logging on or disable it.
-     *   Use null to read current value.
-     * @return bool
-     */
-    public function logQueries($enable = null)
-    {
-        if ($enable === null) {
-            return $this->_logQueries;
-        }
-        $this->_logQueries = $enable;
-    }
-
-    /**
      * Enables or disables metadata caching for this connection
      *
      * Changing this setting will not modify existing schema collections objects.
@@ -650,11 +646,18 @@ class Connection implements ConnectionInterface
     }
 
     /**
-     * Sets the logger object instance. When called with no arguments
-     * it returns the currently setup logger instance.
-     *
-     * @param object $instance logger object instance
-     * @return object logger instance
+     * {@inheritDoc}
+     */
+    public function logQueries($enable = null)
+    {
+        if ($enable === null) {
+            return $this->_logQueries;
+        }
+        $this->_logQueries = $enable;
+    }
+
+    /**
+     * {@inheritDoc}
      */
     public function logger($instance = null)
     {

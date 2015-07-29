@@ -25,9 +25,9 @@ use Cake\Datasource\Exception\InvalidPrimaryKeyException;
 use Cake\Datasource\RepositoryInterface;
 use Cake\Datasource\RulesAwareTrait;
 use Cake\Event\EventDispatcherInterface;
+use Cake\Event\EventDispatcherTrait;
 use Cake\Event\EventListenerInterface;
 use Cake\Event\EventManager;
-use Cake\Event\EventManagerTrait;
 use Cake\ORM\AssociationCollection;
 use Cake\ORM\Association\BelongsTo;
 use Cake\ORM\Association\BelongsToMany;
@@ -122,7 +122,7 @@ use RuntimeException;
 class Table implements RepositoryInterface, EventListenerInterface, EventDispatcherInterface
 {
 
-    use EventManagerTrait;
+    use EventDispatcherTrait;
     use RulesAwareTrait;
     use ValidatorAwareTrait;
 
@@ -279,7 +279,8 @@ class Table implements RepositoryInterface, EventListenerInterface, EventDispatc
             }
         }
         $this->_eventManager = $eventManager ?: new EventManager();
-        $this->_behaviors = $behaviors ?: new BehaviorRegistry($this);
+        $this->_behaviors = $behaviors ?: new BehaviorRegistry();
+        $this->_behaviors->setTable($this);
         $this->_associations = $associations ?: new AssociationCollection();
 
         $this->initialize($config);
@@ -346,10 +347,7 @@ class Table implements RepositoryInterface, EventListenerInterface, EventDispatc
     }
 
     /**
-     * Returns the table alias or sets a new one
-     *
-     * @param string|null $alias the new table alias
-     * @return string
+     * {@inheritDoc}
      */
     public function alias($alias = null)
     {
@@ -1448,8 +1446,8 @@ class Table implements RepositoryInterface, EventListenerInterface, EventDispatc
                 ['_primary' => false] + $options->getArrayCopy()
             );
             if ($success || !$options['atomic']) {
-                $entity->clean();
                 $this->dispatchEvent('Model.afterSave', compact('entity', 'options'));
+                $entity->clean();
                 if (!$options['atomic'] && !$options['_primary']) {
                     $entity->isNew(false);
                     $entity->source($this->registryAlias());
@@ -2181,6 +2179,41 @@ class Table implements RepositoryInterface, EventListenerInterface, EventDispatc
     public function buildRules(RulesChecker $rules)
     {
         return $rules;
+    }
+
+    /**
+     * Loads the specified associations in the passed entity or list of entities
+     * by executing extra queries in the database and merging the results in the
+     * appropriate properties.
+     *
+     * ### Example:
+     *
+     * ```
+     * $user = $usersTable->get(1);
+     * $user = $usersTable->loadInto($user, ['Articles.Tags', 'Articles.Comments']);
+     * echo $user->articles[0]->title;
+     * ```
+     *
+     * You can also load associations for multiple entities at once
+     *
+     * ### Example:
+     *
+     * ```
+     * $users = $usersTable->find()->where([...])->toList();
+     * $users = $usersTable->loadInto($users, ['Articles.Tags', 'Articles.Comments']);
+     * echo $user[1]->articles[0]->title;
+     * ```
+     *
+     * The properties for the associations to be loaded will be overwritten on each entity.
+     *
+     * @param Cake\Datasource\EntityInterface|array $entities a single entity or list of entities
+     * @param array $contain A `contain()` compatible array.
+     * @see Cake\ORM\Query\contain()
+     * @return Cake\Datasource\EntityInterface|array
+     */
+    public function loadInto($entities, array $contain)
+    {
+        return (new LazyEagerLoader)->loadInto($entities, $contain, $this);
     }
 
     /**

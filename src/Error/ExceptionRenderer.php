@@ -128,7 +128,6 @@ class ExceptionRenderer
         }
         if (empty($controller)) {
             $controller = new Controller($request, $response);
-            $controller->viewPath = 'Error';
         }
         return $controller;
     }
@@ -204,7 +203,7 @@ class ExceptionRenderer
      * @param \Exception $exception Exception instance.
      * @return string
      */
-    protected function _method(\Exception $exception)
+    protected function _method(Exception $exception)
     {
         list(, $baseClass) = namespaceSplit(get_class($exception));
 
@@ -223,7 +222,7 @@ class ExceptionRenderer
      * @param int $code Error code.
      * @return string Error message
      */
-    protected function _message(\Exception $exception, $code)
+    protected function _message(Exception $exception, $code)
     {
         $message = $this->error->getMessage();
 
@@ -248,7 +247,7 @@ class ExceptionRenderer
      * @param int $code Error code.
      * @return string Template name
      */
-    protected function _template(\Exception $exception, $method, $code)
+    protected function _template(Exception $exception, $method, $code)
     {
         $isHttpException = $exception instanceof HttpException;
 
@@ -283,7 +282,7 @@ class ExceptionRenderer
      * @param \Exception $exception Exception.
      * @return int Error code value within range 400 to 506
      */
-    protected function _code(\Exception $exception)
+    protected function _code(Exception $exception)
     {
         $code = 500;
         $errorCode = $exception->getCode();
@@ -330,13 +329,11 @@ class ExceptionRenderer
      */
     protected function _outputMessageSafe($template)
     {
-        $this->controller->layoutPath = null;
-        $this->controller->subDir = null;
-        $this->controller->viewPath = 'Error';
-        $this->controller->layout = 'error';
         $this->controller->helpers = ['Form', 'Html'];
-
         $view = $this->controller->createView();
+        $view->layoutPath('');
+        $view->viewPath('Error');
+
         $this->controller->response->body($view->render($template, 'error'));
         $this->controller->response->type('html');
         return $this->controller->response;

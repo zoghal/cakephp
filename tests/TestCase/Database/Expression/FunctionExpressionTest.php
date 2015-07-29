@@ -1,13 +1,13 @@
 <?php
 /**
- * CakePHP(tm) Tests <http://book.cakephp.org/2.0/en/development/testing.html>
+ * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
  * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The Open Group Test Suite License
  * Redistributions of files must retain the above copyright notice.
  *
  * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
- * @link          http://book.cakephp.org/2.0/en/development/testing.html CakePHP(tm) Tests
+ * @link          http://cakephp.org CakePHP(tm) Project
  * @since         3.0.0
  * @license       http://www.opensource.org/licenses/mit-license.php MIT License
  */
@@ -79,7 +79,7 @@ class FunctionExpressionTest extends TestCase
         $binder = new ValueBinder;
         $f = new FunctionExpression('MyFunction', ['foo', 'bar']);
         $g = new FunctionExpression('Wrapper', ['bar' => 'literal', $f]);
-        $this->assertEquals("Wrapper(bar, MyFunction(:c0, :c1))", $g->sql($binder));
+        $this->assertEquals("Wrapper(bar, (MyFunction(:c0, :c1)))", $g->sql($binder));
     }
 
     /**

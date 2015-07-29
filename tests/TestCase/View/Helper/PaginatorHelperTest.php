@@ -1,6 +1,6 @@
 <?php
 /**
- * CakePHP(tm) Tests <http://book.cakephp.org/2.0/en/development/testing.html>
+ * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
  * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
@@ -8,7 +8,7 @@
  * Redistributions of files must retain the above copyright notice
  *
  * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
- * @link          http://book.cakephp.org/2.0/en/development/testing.html CakePHP(tm) Tests
+ * @link          http://cakephp.org CakePHP(tm) Project
  * @since         1.2.0
  * @license       http://www.opensource.org/licenses/mit-license.php MIT License
  */
@@ -799,13 +799,13 @@ class PaginatorHelperTest extends TestCase
         ];
 
         $this->Paginator->request->params['pass'] = [2];
-        $this->Paginator->request->query = ['page' => 1, 'foo' => 'bar', 'x' => 'y'];
+        $this->Paginator->request->query = ['page' => 1, 'foo' => 'bar', 'x' => 'y', 'num' => 0, 'empty' => ''];
         $this->View->request = $this->Paginator->request;
         $this->Paginator = new PaginatorHelper($this->View);
 
         $result = $this->Paginator->sort('title');
         $expected = [
-            'a' => ['href' => '/articles/index/2?foo=bar&amp;x=y&amp;sort=title&amp;direction=asc'],
+            'a' => ['href' => '/articles/index/2?foo=bar&amp;x=y&amp;num=0&amp;sort=title&amp;direction=asc'],
             'Title',
             '/a'
         ];
@@ -814,19 +814,19 @@ class PaginatorHelperTest extends TestCase
         $result = $this->Paginator->numbers();
         $expected = [
             ['li' => ['class' => 'active']], '<a href=""', '1', '/a', '/li',
-            ['li' => []], ['a' => ['href' => '/articles/index/2?page=2&amp;foo=bar&amp;x=y']], '2', '/a', '/li',
-            ['li' => []], ['a' => ['href' => '/articles/index/2?page=3&amp;foo=bar&amp;x=y']], '3', '/a', '/li',
-            ['li' => []], ['a' => ['href' => '/articles/index/2?page=4&amp;foo=bar&amp;x=y']], '4', '/a', '/li',
-            ['li' => []], ['a' => ['href' => '/articles/index/2?page=5&amp;foo=bar&amp;x=y']], '5', '/a', '/li',
-            ['li' => []], ['a' => ['href' => '/articles/index/2?page=6&amp;foo=bar&amp;x=y']], '6', '/a', '/li',
-            ['li' => []], ['a' => ['href' => '/articles/index/2?page=7&amp;foo=bar&amp;x=y']], '7', '/a', '/li',
+            ['li' => []], ['a' => ['href' => '/articles/index/2?page=2&amp;foo=bar&amp;x=y&amp;num=0']], '2', '/a', '/li',
+            ['li' => []], ['a' => ['href' => '/articles/index/2?page=3&amp;foo=bar&amp;x=y&amp;num=0']], '3', '/a', '/li',
+            ['li' => []], ['a' => ['href' => '/articles/index/2?page=4&amp;foo=bar&amp;x=y&amp;num=0']], '4', '/a', '/li',
+            ['li' => []], ['a' => ['href' => '/articles/index/2?page=5&amp;foo=bar&amp;x=y&amp;num=0']], '5', '/a', '/li',
+            ['li' => []], ['a' => ['href' => '/articles/index/2?page=6&amp;foo=bar&amp;x=y&amp;num=0']], '6', '/a', '/li',
+            ['li' => []], ['a' => ['href' => '/articles/index/2?page=7&amp;foo=bar&amp;x=y&amp;num=0']], '7', '/a', '/li',
         ];
         $this->assertHtml($expected, $result);
 
         $result = $this->Paginator->next('Next');
         $expected = [
             'li' => ['class' => 'next'],
-            'a' => ['href' => '/articles/index/2?page=2&amp;foo=bar&amp;x=y', 'rel' => 'next'],
+            'a' => ['href' => '/articles/index/2?page=2&amp;foo=bar&amp;x=y&amp;num=0', 'rel' => 'next'],
             'Next',
             '/a',
             '/li'

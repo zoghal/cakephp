@@ -66,6 +66,13 @@ class TestController extends ControllerTestAppController
 {
 
     /**
+     * Theme property
+     *
+     * @var string
+     */
+    public $theme = 'Foo';
+
+    /**
      * helpers property
      *
      * @var array
@@ -379,12 +386,12 @@ class ControllerTest extends TestCase
         $request->params['action'] = 'index';
 
         $Controller = new Controller($request, new Response());
-        $Controller->viewPath = 'Posts';
+        $Controller->getView()->viewPath = 'Posts';
 
         $result = $Controller->render('index');
         $this->assertRegExp('/posts index/', (string)$result);
 
-        $Controller->view = 'index';
+        $Controller->getView()->view = 'index';
         $Controller->getView()->hasRendered = false;
         $result = $Controller->render();
         $this->assertRegExp('/posts index/', (string)$result);
@@ -392,7 +399,6 @@ class ControllerTest extends TestCase
         $Controller->getView()->hasRendered = false;
         $result = $Controller->render('/Element/test_element');
         $this->assertRegExp('/this is the test element/', (string)$result);
-        $Controller->view = null;
     }
 
     /**
@@ -464,8 +470,7 @@ class ControllerTest extends TestCase
      */
     public function testRedirectByCode($code, $msg)
     {
-        $Controller = new Controller(null);
-        $Controller->response = new Response();
+        $Controller = new Controller(null, new Response());
 
         $response = $Controller->redirect('http://cakephp.org', (int)$code, false);
         $this->assertEquals($code, $response->statusCode());
@@ -480,8 +485,7 @@ class ControllerTest extends TestCase
      */
     public function testRedirectBeforeRedirectModifyingUrl()
     {
-        $Controller = new Controller(null);
-        $Controller->response = new Response();
+        $Controller = new Controller(null, new Response());
 
         $Controller->eventManager()->attach(function ($event, $url, $response) {
             $response->location('http://book.cakephp.org');
@@ -644,7 +648,6 @@ class ControllerTest extends TestCase
         $expected = ['testId' => 1, 'test2Id' => 2];
         $this->assertSame($expected, $TestController->request->data);
         $this->assertSame('view', $TestController->request->params['action']);
-        $this->assertSame('view', $TestController->view);
     }
 
     /**
@@ -853,18 +856,30 @@ class ControllerTest extends TestCase
         ]);
         $response = $this->getMock('Cake\Network\Response');
         $Controller = new \TestApp\Controller\Admin\PostsController($request, $response);
-        $this->assertEquals('Admin' . DS . 'Posts', $Controller->viewPath);
+        $Controller->eventManager()->on('Controller.beforeRender', function (Event $e) {
+            return $e->subject()->response;
+        });
+        $Controller->render();
+        $this->assertEquals('Admin' . DS . 'Posts', $Controller->getView()->viewPath);
 
         $request->addParams([
             'prefix' => 'admin/super'
         ]);
         $response = $this->getMock('Cake\Network\Response');
         $Controller = new \TestApp\Controller\Admin\PostsController($request, $response);
-        $this->assertEquals('Admin' . DS . 'Super' . DS . 'Posts', $Controller->viewPath);
+        $Controller->eventManager()->on('Controller.beforeRender', function (Event $e) {
+            return $e->subject()->response;
+        });
+        $Controller->render();
+        $this->assertEquals('Admin' . DS . 'Super' . DS . 'Posts', $Controller->getView()->viewPath);
 
         $request = new Request('pages/home');
         $Controller = new \TestApp\Controller\PagesController($request, $response);
-        $this->assertEquals('Pages', $Controller->viewPath);
+        $Controller->eventManager()->on('Controller.beforeRender', function (Event $e) {
+            return $e->subject()->response;
+        });
+        $Controller->render();
+        $this->assertEquals('Pages', $Controller->getView()->viewPath);
     }
 
     /**
@@ -938,5 +953,19 @@ class ControllerTest extends TestCase
         $this->assertFalse($controller->isAction('redirect'));
         $this->assertFalse($controller->isAction('beforeFilter'));
         $this->assertTrue($controller->isAction('index'));
+    }
+
+    /**
+     * Test declared deprecated properties like $theme are properly passed to view.
+     * @return void
+     */
+    public function testDeclaredDeprecatedProperty()
+    {
+        $controller = new TestController(new Request(), new Response());
+        $theme = $controller->theme;
+
+        // @codingStandardsIgnoreStart
+        $this->assertEquals($theme, @$controller->getView()->theme);
+        // @codingStandardsIgnoreEnd
     }
 }

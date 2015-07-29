@@ -1,6 +1,6 @@
 <?php
 /**
- * CakePHP(tm) Tests <http://book.cakephp.org/2.0/en/development/testing.html>
+ * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
  * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
@@ -8,14 +8,14 @@
  * Redistributions of files must retain the above copyright notice
  *
  * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
- * @link          http://book.cakephp.org/2.0/en/development/testing.html CakePHP(tm) Tests
+ * @link          http://cakephp.org CakePHP(tm) Project
  * @since         2.0.0
  * @license       http://www.opensource.org/licenses/mit-license.php MIT License
  */
-namespace Cake\Test\TestCase\Network\Email;
+namespace Cake\Test\TestCase\Mailer\Transport;
 
-use Cake\Network\Email\Email;
-use Cake\Network\Email\SmtpTransport;
+use Cake\Mailer\Email;
+use Cake\Mailer\Transport\SmtpTransport;
 use Cake\Network\Socket;
 use Cake\TestSuite\TestCase;
 
@@ -379,7 +379,7 @@ class SmtpTransportTest extends TestCase
      */
     public function testSendData()
     {
-        $email = $this->getMock('Cake\Network\Email\Email', ['message']);
+        $email = $this->getMock('Cake\Mailer\Email', ['message']);
         $email->from('noreply@cakephp.org', 'CakePHP Test');
         $email->returnPath('pleasereply@cakephp.org', 'CakePHP Return');
         $email->to('cake@cakephp.org', 'CakePHP');
@@ -618,7 +618,7 @@ class SmtpTransportTest extends TestCase
     {
         $this->SmtpTransport->config(['keepAlive' => true]);
 
-        $email = $this->getMock('Cake\Network\Email\Email', ['message']);
+        $email = $this->getMock('Cake\Mailer\Email', ['message']);
         $email->from('noreply@cakephp.org', 'CakePHP Test');
         $email->to('cake@cakephp.org', 'CakePHP');
         $email->expects($this->exactly(2))->method('message')->will($this->returnValue(['First Line']));
@@ -680,7 +680,7 @@ class SmtpTransportTest extends TestCase
      */
     public function testSendDefaults()
     {
-        $email = $this->getMock('Cake\Network\Email\Email', ['message']);
+        $email = $this->getMock('Cake\Mailer\Email', ['message']);
         $email->from('noreply@cakephp.org', 'CakePHP Test');
         $email->to('cake@cakephp.org', 'CakePHP');
         $email->expects($this->once())->method('message')->will($this->returnValue(['First Line']));

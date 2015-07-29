@@ -59,6 +59,7 @@ class TableTest extends TestCase
         'core.members',
         'core.groups',
         'core.groups_members',
+        'core.polymorphic_tagged',
     ];
 
     /**
@@ -1887,6 +1888,7 @@ class TableTest extends TestCase
         $called = false;
         $listener = function ($e, $entity, $options) use ($data, &$called) {
             $this->assertSame($data, $entity);
+            $this->assertTrue($entity->dirty());
             $called = true;
         };
         $table->eventManager()->on('Model.afterSave', $listener);
@@ -1894,6 +1896,7 @@ class TableTest extends TestCase
         $calledAfterCommit = false;
         $listenerAfterCommit = function ($e, $entity, $options) use ($data, &$calledAfterCommit) {
             $this->assertSame($data, $entity);
+            $this->assertFalse($entity->dirty());
             $calledAfterCommit = true;
         };
         $table->eventManager()->on('Model.afterSaveCommit', $listenerAfterCommit);
@@ -3287,6 +3290,80 @@ class TableTest extends TestCase
     }
 
     /**
+     * Test to check that association condition are used when fetching existing
+     * records to decide which records to unlink.
+     *
+     * @return void
+     */
+    public function testPolymorphicBelongsToManySave()
+    {
+        $articles = TableRegistry::get('Articles');
+        $articles->belongsToMany('Tags', [
+            'through' => 'PolymorphicTagged',
+            'foreignKey' => 'foreign_key',
+            'conditions' => [
+                'PolymorphicTagged.foreign_model' => 'Articles'
+            ],
+            'sort' => ['PolymorphicTagged.position' => 'ASC']
+        ]);
+
+        $articles->Tags->junction()->belongsTo('Tags');
+
+        $entity = $articles->get(1, ['contain' => ['Tags']]);
+        $data = [
+            'id' => 1,
+            'tags' => [
+                [
+                    'id' => 1,
+                    '_joinData' => [
+                        'id' => 2,
+                        'foreign_model' => 'Articles',
+                        'position' => 2
+                    ]
+                ],
+                [
+                    'id' => 2,
+                    '_joinData' => [
+                        'foreign_model' => 'Articles',
+                        'position' => 1
+                    ]
+                ]
+            ]
+        ];
+        $entity = $articles->patchEntity($entity, $data, ['associated' => ['Tags._joinData']]);
+        $entity = $articles->save($entity);
+
+        $expected = [
+            [
+                'id' => 1,
+                'tag_id' => 1,
+                'foreign_key' => 1,
+                'foreign_model' => 'Posts',
+                'position' => 1
+            ],
+            [
+                'id' => 2,
+                'tag_id' => 1,
+                'foreign_key' => 1,
+                'foreign_model' => 'Articles',
+                'position' => 2
+            ],
+            [
+                'id' => 3,
+                'tag_id' => 2,
+                'foreign_key' => 1,
+                'foreign_model' => 'Articles',
+                'position' => 1
+            ]
+        ];
+        $result = TableRegistry::get('PolymorphicTagged')
+            ->find('all', ['sort' => ['id' => 'DESC']])
+            ->hydrate(false)
+            ->toArray();
+        $this->assertEquals($expected, $result);
+    }
+
+    /**
      * Tests saving belongsToMany records can delete all links.
      *
      * @group save
@@ -4245,6 +4322,11 @@ class TableTest extends TestCase
         $this->assertEquals(4, $cloned->id);
     }
 
+    /**
+     * Tests that the _ids notation can be used for HasMany
+     *
+     * @return void
+     */
     public function testSaveHasManyWithIds()
     {
         $data = [
@@ -4261,6 +4343,80 @@ class TableTest extends TestCase
         $retrievedUser = $userTable->find('all')->where(['id' => $savedUser->id])->contain(['Comments'])->first();
         $this->assertEquals($savedUser->comments[0]->user_id, $retrievedUser->comments[0]->user_id);
         $this->assertEquals($savedUser->comments[1]->user_id, $retrievedUser->comments[1]->user_id);
+    }
+
+    /**
+     * Tests that on second save, entities for the has many relation are not marked
+     * as dirty unnecessarily. This helps avoid wasteful database statements and makes
+     * for a cleaner transaction log
+     *
+     * @return void
+     */
+    public function testSaveHasManyNoWasteSave()
+    {
+        $data = [
+            'username' => 'lux',
+            'password' => 'passphrase',
+            'comments' => [
+                '_ids' => [1, 2]
+            ]
+        ];
+
+        $userTable = TableRegistry::get('Users');
+        $userTable->hasMany('Comments');
+        $savedUser = $userTable->save($userTable->newEntity($data, ['associated' => ['Comments']]));
+
+        $counter = 0;
+        $userTable->Comments
+            ->eventManager()
+            ->on('Model.afterSave', function ($event, $entity) use (&$counter) {
+                if ($entity->dirty()) {
+                    $counter++;
+                }
+            });
+
+        $savedUser->comments[] = $userTable->Comments->get(5);
+        $this->assertCount(3, $savedUser->comments);
+        $savedUser->dirty('comments', true);
+        $userTable->save($savedUser);
+        $this->assertEquals(1, $counter);
+    }
+
+    /**
+     * Tests that on second save, entities for the belongsToMany relation are not marked
+     * as dirty unnecessarily. This helps avoid wasteful database statements and makes
+     * for a cleaner transaction log
+     *
+     * @return void
+     */
+    public function testSaveBelongsToManyNoWasteSave()
+    {
+        $data = [
+            'title' => 'foo',
+            'body' => 'bar',
+            'tags' => [
+                '_ids' => [1, 2]
+            ]
+        ];
+
+        $table = TableRegistry::get('Articles');
+        $table->belongsToMany('Tags');
+        $article = $table->save($table->newEntity($data, ['associated' => ['Tags']]));
+
+        $counter = 0;
+        $table->Tags->junction()
+            ->eventManager()
+            ->on('Model.afterSave', function ($event, $entity) use (&$counter) {
+                if ($entity->dirty()) {
+                    $counter++;
+                }
+            });
+
+        $article->tags[] = $table->Tags->get(3);
+        $this->assertCount(3, $article->tags);
+        $article->dirty('tags', true);
+        $table->save($article);
+        $this->assertEquals(1, $counter);
     }
 
     /**
@@ -4281,6 +4437,94 @@ class TableTest extends TestCase
         $table = TableRegistry::get('Users');
         $this->assertSame($entity, $table->save($entity));
         $this->assertSame(self::$nextUserId, $entity->id);
+    }
+
+    /**
+     * Tests the loadInto() method
+     *
+     * @return void
+     */
+    public function testLoadIntoEntity()
+    {
+        $table = TableRegistry::get('Authors');
+        $table->hasMany('SiteArticles');
+        $articles = $table->hasMany('Articles');
+        $articles->belongsToMany('Tags');
+
+        $entity = $table->get(1);
+        $result = $table->loadInto($entity, ['SiteArticles', 'Articles.Tags']);
+        $this->assertSame($entity, $result);
+
+        $expected = $table->get(1, ['contain' => ['SiteArticles', 'Articles.Tags']]);
+        $this->assertEquals($expected, $result);
+    }
+
+    /**
+     * Tests that it is possible to pass conditions and fields to loadInto()
+     *
+     * @return void
+     */
+    public function testLoadIntoWithConditions()
+    {
+        $table = TableRegistry::get('Authors');
+        $table->hasMany('SiteArticles');
+        $articles = $table->hasMany('Articles');
+        $articles->belongsToMany('Tags');
+
+        $entity = $table->get(1);
+        $options = [
+            'SiteArticles' => ['fields' => ['title', 'author_id']],
+            'Articles.Tags' => function ($q) {
+                return $q->where(['Tags.name' => 'tag2']);
+            }
+        ];
+        $result = $table->loadInto($entity, $options);
+        $this->assertSame($entity, $result);
+        $expected = $table->get(1, ['contain' => $options]);
+        $this->assertEquals($expected, $result);
+    }
+
+    /**
+     * Tests loadInto() with a belongsTo association
+     *
+     * @return void
+     */
+    public function testLoadBelognsTo()
+    {
+        $table = TableRegistry::get('Articles');
+        $table->belongsTo('Authors');
+
+        $entity = $table->get(2);
+        $result = $table->loadInto($entity, ['Authors']);
+        $this->assertSame($entity, $result);
+
+        $expected = $table->get(2, ['contain' => ['Authors']]);
+        $this->assertEquals($expected, $entity);
+    }
+
+    /**
+     * Tests that it is possible to post-load associations for many entities at
+     * the same time
+     *
+     * @return void
+     */
+    public function testLoadIntoMany()
+    {
+        $table = TableRegistry::get('Authors');
+        $table->hasMany('SiteArticles');
+        $articles = $table->hasMany('Articles');
+        $articles->belongsToMany('Tags');
+
+        $entities = $table->find()->compile();
+        $contain = ['SiteArticles', 'Articles.Tags'];
+        $result = $table->loadInto($entities, $contain);
+
+        foreach ($entities as $k => $v) {
+            $this->assertSame($v, $result[$k]);
+        }
+
+        $expected = $table->find()->contain($contain)->toList();
+        $this->assertEquals($expected, $result);
     }
 
     /**

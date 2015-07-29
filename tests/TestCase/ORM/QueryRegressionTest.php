@@ -43,6 +43,8 @@ class QueryRegressionTest extends TestCase
         'core.special_tags',
         'core.translates',
         'core.authors_tags',
+        'core.featured_tags',
+        'core.tags_translations',
     ];
 
     /**
@@ -524,6 +526,43 @@ class QueryRegressionTest extends TestCase
     }
 
     /**
+     * Tests that finding on a table with a primary key other than `id` will work
+     * seamlessly with either select or subquery.
+     *
+     * @see https://github.com/cakephp/cakephp/issues/6781
+     * @return void
+     */
+    public function testDeepHasManyEitherStrategy()
+    {
+        $tags = TableRegistry::get('Tags');
+        $featuredTags = TableRegistry::get('FeaturedTags');
+        $featuredTags->belongsTo('Tags');
+
+        $tags->hasMany('TagsTranslations', [
+            'foreignKey' => 'id',
+            'strategy' => 'select'
+        ]);
+        $findViaSelect = $featuredTags
+            ->find()
+            ->where(['FeaturedTags.tag_id' => 2])
+            ->contain('Tags.TagsTranslations');
+
+        $tags->hasMany('TagsTranslations', [
+            'foreignKey' => 'id',
+            'strategy' => 'subquery'
+        ]);
+        $findViaSubquery = $featuredTags
+            ->find()
+            ->where(['FeaturedTags.tag_id' => 2])
+            ->contain('Tags.TagsTranslations');
+
+        $expected = [2 => 'tag 2 translated into en_us'];
+
+        $this->assertEquals($expected, $findViaSelect->combine('tag_id', 'tag.tags_translations.0.name')->toArray());
+        $this->assertEquals($expected, $findViaSubquery->combine('tag_id', 'tag.tags_translations.0.name')->toArray());
+    }
+
+    /**
      * Tests that getting the count of a query having containments return
      * the correct results
      *
@@ -841,6 +880,31 @@ class QueryRegressionTest extends TestCase
     }
 
     /**
+     * Test that empty conditions in a matching clause don't cause errors.
+     *
+     * @return void
+     */
+    public function testMatchingEmptyQuery()
+    {
+        $table = TableRegistry::get('Articles');
+        $table->belongsToMany('Tags');
+
+        $rows = $table->find()
+            ->matching('Tags', function ($q) {
+                return $q->where([]);
+            })
+            ->all();
+        $this->assertNotEmpty($rows);
+
+        $rows = $table->find()
+            ->matching('Tags', function ($q) {
+                return $q->where(null);
+            })
+            ->all();
+        $this->assertNotEmpty($rows);
+    }
+
+    /**
      * Tests that using a subquery as part of an expression will not make invalid SQL
      *
      * @return void
@@ -877,5 +941,85 @@ class QueryRegressionTest extends TestCase
         $table->deleteAll(['1 = 1']);
         $this->assertEquals(0, $table->find()->count());
         $this->assertNull($table->find()->last());
+    }
+
+    /**
+     * Test that the typemaps used in function expressions
+     * create the correct results.
+     *
+     * @return void
+     */
+    public function testTypemapInFunctions()
+    {
+        $table = TableRegistry::get('Comments');
+        $table->updateAll(['published' => null], ['1 = 1']);
+        $query = $table->find();
+        $query->select([
+            'id',
+            'coalesced' => $query->func()->coalesce(
+                ['published' => 'literal', -1],
+                ['integer']
+            )
+        ]);
+        $result = $query->all()->first();
+        $this->assertSame(
+            '-1',
+            $result['coalesced'],
+            'Output values for functions are not cast yet.'
+        );
+    }
+
+    /**
+     * Test that contain queries map types correctly.
+     *
+     * @return void
+     */
+    public function testBooleanConditionsInContain()
+    {
+        $table = TableRegistry::get('Articles');
+        $table->belongsToMany('Tags', [
+            'foreignKey' => 'article_id',
+            'associationForeignKey' => 'tag_id',
+            'through' => 'SpecialTags'
+        ]);
+        $query = $table->find()
+            ->contain(['Tags' => function ($q) {
+                return $q->where(['SpecialTags.highlighted_time >' => new Time('2014-06-01 00:00:00')]);
+            }])
+            ->where(['Articles.id' => 2]);
+
+        $result = $query->first();
+        $this->assertEquals(2, $result->id);
+        $this->assertNotEmpty($result->tags, 'Missing tags');
+        $this->assertNotEmpty($result->tags[0]->_joinData, 'Missing join data');
+    }
+
+    /**
+     * Tests that it is possible to use matching with dot notation
+     * even when part of the part of the path in the dot notation is
+     * shared for two different calls
+     *
+     * @return void
+     */
+    public function testDotNotationNotOverride()
+    {
+        $table = TableRegistry::get('Comments');
+        $articles = $table->belongsTo('Articles');
+        $specialTags = $articles->hasMany('SpecialTags');
+        $specialTags->belongsTo('Authors');
+        $specialTags->belongsTo('Tags');
+
+        $results = $table
+            ->find()
+            ->select(['name' => 'Authors.name', 'tag' => 'Tags.name'])
+            ->matching('Articles.SpecialTags.Tags')
+            ->matching('Articles.SpecialTags.Authors', function ($q) {
+                return $q->where(['Authors.id' => 2]);
+            })
+            ->distinct()
+            ->hydrate(false)
+            ->toArray();
+
+        $this->assertEquals([['name' => 'nate', 'tag' => 'tag1']], $results);
     }
 }

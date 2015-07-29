@@ -1,6 +1,6 @@
 <?php
 /**
- * CakePHP(tm) Tests <http://book.cakephp.org/2.0/en/development/testing.html>
+ * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
  * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
@@ -8,7 +8,7 @@
  * Redistributions of files must retain the above copyright notice
  *
  * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
- * @link          http://book.cakephp.org/2.0/en/development/testing.html CakePHP(tm) Tests
+ * @link          http://cakephp.org CakePHP(tm) Project
  * @since         1.2.0
  * @license       http://www.opensource.org/licenses/mit-license.php MIT License
  */
@@ -458,38 +458,6 @@ class ConfigureTest extends TestCase
 
         $this->assertTrue(Configure::drop('test'));
         $this->assertFalse(Configure::drop('test'), 'dropping things that do not exist should return false.');
-    }
-
-    /**
-     * test engine() throwing exceptions on missing interface.
-     *
-     * @return void
-     */
-    public function testEngineExceptionOnIncorrectClass()
-    {
-        $this->skipIf(PHP_VERSION_ID >= 70000);
-
-        $message = '/^Argument 2 passed to Cake\\\Core\\\Configure::config\(\) must implement interface Cake\\\Core\\\Configure\\\ConfigEngineInterface, instance of stdClass given.*/';
-        $this->setExpectedExceptionRegExp('PHPUnit_Framework_Error', $message);
-        Configure::config('test', new \stdClass());
-    }
-
-    /**
-     * test engine() throwing exceptions on missing interface (PHP 7)
-     *
-     * @return void
-     */
-    public function testEngineExceptionOnIncorrectClassPhp7()
-    {
-        $this->skipIf(PHP_VERSION_ID < 70000);
-
-        try {
-            Configure::config('test', new \stdClass());
-            $this->fail();
-        } catch (\BaseException $e) {
-            $expectedMessage = 'Argument 2 passed to Cake\Core\Configure::config() must implement interface Cake\Core\Configure\ConfigEngineInterface, instance of stdClass given';
-            $this->assertContains($expectedMessage, $e->getMessage());
-        }
     }
 
     /**

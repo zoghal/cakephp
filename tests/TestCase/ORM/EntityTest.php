@@ -122,6 +122,14 @@ class EntityTest extends TestCase
             'body' => 'no',
         ];
         $this->assertEquals($expected, $result);
+
+        $entity->set('null', 'not null');
+        $result = $entity->extractOriginalChanged(['id', 'title', 'body', 'null']);
+        $expected = [
+            'null' => null,
+            'body' => 'no',
+        ];
+        $this->assertEquals($expected, $result);
     }
 
     /**
@@ -809,6 +817,30 @@ class EntityTest extends TestCase
             ]
         ];
         $this->assertEquals($expected, $user->toArray());
+    }
+
+    /**
+     * Tests that an entity with entities and other misc types can be properly toArray'd
+     *
+     * @return void
+     */
+    public function testToArrayMixed()
+    {
+        $test = new Entity([
+            'id' => 1,
+            'foo' => [
+                new Entity(['hi' => 'test']),
+                'notentity' => 1
+            ]
+        ]);
+        $expected = [
+            'id' => 1,
+            'foo' => [
+                ['hi' => 'test'],
+                'notentity' => 1
+            ]
+        ];
+        $this->assertEquals($expected, $test->toArray());
     }
 
     /**

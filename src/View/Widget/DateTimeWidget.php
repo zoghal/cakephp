@@ -129,7 +129,7 @@ class DateTimeWidget implements WidgetInterface
         $data = $this->_normalizeData($data);
 
         $selected = $this->_deconstructDate($data['val'], $data);
-        $templateOptions = [];
+        $templateOptions = ['templateVars' => $data['templateVars']];
         foreach ($this->_selects as $select) {
             if ($data[$select] === false || $data[$select] === null) {
                 $templateOptions[$select] = '';
@@ -153,6 +153,15 @@ class DateTimeWidget implements WidgetInterface
             }
             if (!isset($data[$select]['disabled'])) {
                 $data[$select]['disabled'] = $data['disabled'];
+            }
+            if (isset($data[$select]['templateVars']) && $templateOptions['templateVars']) {
+                $data[$select]['templateVars'] = array_merge(
+                    $templateOptions['templateVars'],
+                    $data[$select]['templateVars']
+                );
+            }
+            if (!isset($data[$select]['templateVars'])) {
+                $data[$select]['templateVars'] = $templateOptions['templateVars'];
             }
             $templateOptions[$select] = $this->{$method}($data[$select], $context);
             unset($data[$select]);
@@ -183,6 +192,7 @@ class DateTimeWidget implements WidgetInterface
             'second' => [],
             'meridian' => null,
             'localization' => [ 'baseLocale' => null],
+            'templateVars' => [],
             'locale' => null,
             'timezone' => null
         ];
@@ -338,6 +348,7 @@ class DateTimeWidget implements WidgetInterface
             'start' => $date->subYears(5)->I18nFormat("yyyy", null, $options['localization']['baseLocale']),
             'end' => $date->addYears(10)->I18nFormat("yyyy", null, $options['localization']['baseLocale']),
             'order' => 'desc',
+            'templateVars' => [],
             'options' => []
         ];
 
@@ -374,7 +385,8 @@ class DateTimeWidget implements WidgetInterface
             'names' => false,
             'val' => null,
             'leadingZeroKey' => true,
-            'leadingZeroValue' => false
+            'leadingZeroValue' => false,
+            'templateVars' => [],
         ];
 
         if (empty($options['options'])) {
@@ -408,6 +420,7 @@ class DateTimeWidget implements WidgetInterface
             'val' => null,
             'leadingZeroKey' => true,
             'leadingZeroValue' => false,
+            'templateVars' => [],
         ];
         $options['options'] = $this->_generateNumbers(1, 31, $options);
 
@@ -435,6 +448,7 @@ class DateTimeWidget implements WidgetInterface
             'end' => null,
             'leadingZeroKey' => true,
             'leadingZeroValue' => false,
+            'templateVars' => [],
         ];
         $is24 = $options['format'] == 24;
 
@@ -463,9 +477,10 @@ class DateTimeWidget implements WidgetInterface
         }
 
         unset(
-            $options['end'], $options['start'],
-            $options['format'], $options['leadingZeroKey'],
-            $options['leadingZeroValue'], $options['localization']
+            $options['end'],
+            $options['start'],
+            $options['format'],
+            $options['leadingZeroKey'],
         );
         return $this->_select->render($options, $context);
     }
@@ -486,6 +501,7 @@ class DateTimeWidget implements WidgetInterface
             'round' => 'up',
             'leadingZeroKey' => true,
             'leadingZeroValue' => true,
+            'templateVars' => [],
         ];
         $options['interval'] = max($options['interval'], 1);
         if (empty($options['options'])) {
@@ -514,6 +530,7 @@ class DateTimeWidget implements WidgetInterface
             'val' => null,
             'leadingZeroKey' => true,
             'leadingZeroValue' => true,
+            'templateVars' => [],
         ];
         $options['options'] = $this->_generateNumbers(0, 59, $options);
         unset(
@@ -536,8 +553,8 @@ class DateTimeWidget implements WidgetInterface
         $options += [
             'name' => '',
             'val' => null,
-            'options' => [
-                'am' => $date->i18nFormat('a'),
+            'options' => ['am' => 'am', 'pm' => 'pm'],
+            'templateVars' => [],
                 'pm' => $date->addHours(12)->i18nFormat('a')
             ]
         ];

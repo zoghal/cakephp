@@ -265,6 +265,21 @@ class BelongsToMany extends Association
     /**
      * {@inheritDoc}
      */
+    protected function _appendNotMatching($query, $options)
+    {
+        $target = $junction = $this->junction();
+        if (!empty($options['negateMatch'])) {
+            $primaryKey = $query->aliasFields((array)$target->primaryKey(), $target->alias());
+            $query->andWhere(function ($exp) use ($primaryKey) {
+                array_map([$exp, 'isNull'], $primaryKey);
+                return $exp;
+            });
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
     public function transformRow($row, $nestKey, $joined)
     {
         $alias = $this->junction()->alias();
@@ -349,11 +364,11 @@ class BelongsToMany extends Association
             return true;
         }
         $foreignKey = (array)$this->foreignKey();
-        $primaryKey = (array)$this->source()->primaryKey();
+        $bindingKey = (array)$this->bindingKey();
         $conditions = [];
 
-        if ($primaryKey) {
-            $conditions = array_combine($foreignKey, $entity->extract((array)$primaryKey));
+        if ($bindingKey) {
+            $conditions = array_combine($foreignKey, $entity->extract($bindingKey));
         }
 
         $table = $this->junction();
@@ -431,12 +446,12 @@ class BelongsToMany extends Association
         $targetEntity = $entity->get($this->property());
         $strategy = $this->saveStrategy();
 
-        if ($targetEntity === null) {
-            return false;
-        }
-
-        if ($targetEntity === [] && $entity->isNew()) {
+        $isEmpty = in_array($targetEntity, [null, [], '', false], true);
+        if ($isEmpty && $entity->isNew()) {
             return $entity;
+        }
+        if ($isEmpty) {
+            $targetEntity = [];
         }
 
         if ($strategy === self::SAVE_APPEND) {
@@ -534,7 +549,7 @@ class BelongsToMany extends Association
         $foreignKey = (array)$this->foreignKey();
         $assocForeignKey = (array)$belongsTo->foreignKey();
         $targetPrimaryKey = (array)$target->primaryKey();
-        $sourcePrimaryKey = (array)$source->primaryKey();
+        $bindingKey = (array)$this->bindingKey();
         $jointProperty = $this->_junctionProperty;
         $junctionAlias = $junction->alias();
 
@@ -544,11 +559,17 @@ class BelongsToMany extends Association
                 $joint = new $entityClass([], ['markNew' => true, 'source' => $junctionAlias]);
             }
 
-            $joint->set(array_combine(
-                $foreignKey,
-                $sourceEntity->extract($sourcePrimaryKey)
-            ), ['guard' => false]);
-            $joint->set(array_combine($assocForeignKey, $e->extract($targetPrimaryKey)), ['guard' => false]);
+            $sourceKeys = array_combine($foreignKey, $sourceEntity->extract($bindingKey));
+            $targetKeys = array_combine($assocForeignKey, $e->extract($targetPrimaryKey));
+
+            if ($sourceKeys !== $joint->extract($foreignKey)) {
+                $joint->set($sourceKeys, ['guard' => false]);
+            }
+
+            if ($targetKeys !== $joint->extract($assocForeignKey)) {
+                $joint->set($targetKeys, ['guard' => false]);
+            }
+
             $saved = $junction->save($joint, $options);
 
             if (!$saved && !empty($options['atomic'])) {
@@ -719,10 +740,10 @@ class BelongsToMany extends Association
      */
     public function replaceLinks(EntityInterface $sourceEntity, array $targetEntities, array $options = [])
     {
-        $primaryKey = (array)$this->source()->primaryKey();
-        $primaryValue = $sourceEntity->extract($primaryKey);
+        $bindingKey = (array)$this->bindingKey();
+        $primaryValue = $sourceEntity->extract($bindingKey);
 
-        if (count(array_filter($primaryValue, 'strlen')) !== count($primaryKey)) {
+        if (count(array_filter($primaryValue, 'strlen')) !== count($bindingKey)) {
             $message = 'Could not find primary key value for source entity';
             throw new InvalidArgumentException($message);
         }
@@ -733,6 +754,11 @@ class BelongsToMany extends Association
                 $hasMany = $this->source()->association($this->_junctionTable->alias());
                 $existing = $hasMany->find('all')
                     ->where(array_combine($foreignKey, $primaryValue));
+
+                $associationConditions = $this->conditions();
+                if ($associationConditions) {
+                    $existing->andWhere($associationConditions);
+                }
 
                 $jointEntities = $this->_collectJointEntities($sourceEntity, $targetEntities);
                 $inserts = $this->_diffLinks($existing, $jointEntities, $targetEntities);
@@ -942,6 +968,7 @@ class BelongsToMany extends Association
 
         $assoc = $this->target()->association($name);
         $query
+            ->addDefaultTypes($assoc->target())
             ->join($matching + $joins, [], true)
             ->autoFields($query->clause('select') === [])
             ->select($query->aliasFields((array)$assoc->foreignKey(), $name));

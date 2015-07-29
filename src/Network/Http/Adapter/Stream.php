@@ -182,7 +182,7 @@ class Stream
         if (is_array($content)) {
             $formData = new FormData();
             $formData->addMany($content);
-            $type = 'multipart/form-data; boundary="' . $formData->boundary() . '"';
+            $type = $formData->contentType();
             $request->header('Content-Type', $type);
             $this->_contextOptions['content'] = (string)$formData;
             return;
@@ -266,7 +266,7 @@ class Stream
             throw new Exception('Connection timed out ' . $url);
         }
         $headers = $meta['wrapper_data'];
-        if (isset($meta['wrapper_type']) && $meta['wrapper_type'] === 'curl') {
+        if (isset($meta['wrapper_type']) && strtolower($meta['wrapper_type']) === 'curl') {
             $headers = $meta['wrapper_data']['headers'];
         }
         return $this->createResponses($headers, $content);

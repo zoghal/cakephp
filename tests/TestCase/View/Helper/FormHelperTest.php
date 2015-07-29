@@ -1,6 +1,6 @@
 <?php
 /**
- * CakePHP(tm) Tests <http://book.cakephp.org/2.0/en/development/testing.html>
+ * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
  * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
@@ -8,7 +8,7 @@
  * Redistributions of files must retain the above copyright notice
  *
  * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
- * @link          http://book.cakephp.org/2.0/en/development/testing.html CakePHP(tm) Tests
+ * @link          http://cakephp.org CakePHP(tm) Project
  * @since         1.2.0
  * @license       http://www.opensource.org/licenses/mit-license.php MIT License
  */
@@ -546,6 +546,40 @@ class FormHelperTest extends TestCase
         ]);
         $this->Form->end();
         $this->assertNotEquals('custom input element', $this->Form->templater()->get('input'));
+    }
+
+    /**
+     * Test using template vars in various templates used by input() method.
+     *
+     * @return void
+     */
+    public function testInputTemplateVars()
+    {
+        $result = $this->Form->input('text', [
+            'templates' => [
+                'input' => '<input custom="{{forinput}}" type="{{type}}" name="{{name}}"{{attrs}}>',
+                'label' => '<label{{attrs}}>{{text}} {{forlabel}}</label>',
+                'formGroup' => '{{label}}{{forgroup}}{{input}}',
+                'inputContainer' => '<div class="input {{type}}{{required}}">{{content}}{{forcontainer}}</div>',
+            ],
+            'templateVars' => [
+                'forinput' => 'in-input',
+                'forlabel' => 'in-label',
+                'forgroup' => 'in-group',
+                'forcontainer' => 'in-container'
+            ]
+        ]);
+        $expected = [
+            'div' => ['class'],
+            'label' => ['for'],
+            'Text in-label',
+            '/label',
+            'in-group',
+            'input' => ['name', 'type' => 'text', 'id', 'custom' => 'in-input'],
+            'in-container',
+            '/div',
+        ];
+        $this->assertHtml($expected, $result);
     }
 
     /**
@@ -2663,6 +2697,7 @@ class FormHelperTest extends TestCase
                 'empty' => false,
                 'id' => 'prueba',
                 'required' => false,
+                'templateVars' => []
             ])
             ->will($this->returnValue('This is it!'));
         $result = $this->Form->input('prueba', [
@@ -2706,6 +2741,7 @@ class FormHelperTest extends TestCase
                 'empty' => false,
                 'id' => 'prefix-prueba',
                 'required' => false,
+                'templateVars' => []
             ])
             ->will($this->returnValue('This is it!'));
         $result = $this->Form->input('prueba', [
@@ -3803,6 +3839,29 @@ class FormHelperTest extends TestCase
         $result = $this->Form->input('test', [
             'type' => 'radio',
             'options' => ['A', 'B'],
+            'value' => '0'
+        ]);
+        $expected = [
+            ['div' => ['class' => 'input radio']],
+                '<label',
+                'Test',
+                '/label',
+                ['input' => ['type' => 'hidden', 'name' => 'test', 'value' => '']],
+                ['label' => ['for' => 'test-0']],
+                    ['input' => ['type' => 'radio', 'checked' => 'checked', 'name' => 'test', 'value' => '0', 'id' => 'test-0']],
+                    'A',
+                '/label',
+                ['label' => ['for' => 'test-1']],
+                    ['input' => ['type' => 'radio', 'name' => 'test', 'value' => '1', 'id' => 'test-1']],
+                    'B',
+                '/label',
+            '/div',
+        ];
+        $this->assertHtml($expected, $result);
+
+        $result = $this->Form->input('test', [
+            'type' => 'radio',
+            'options' => ['A', 'B'],
             'label' => false
         ]);
         $expected = [
@@ -3892,6 +3951,26 @@ class FormHelperTest extends TestCase
             'label' => ['for' => 'model-1-field-0'],
             'input' => ['type' => 'radio', 'name' => 'Model[1][field]', 'value' => '0', 'id' => 'model-1-field-0'],
             'option A',
+            '/label'
+        ];
+        $this->assertHtml($expected, $result);
+    }
+
+    /**
+     * testRadio method
+     *
+     * Test radio element set generation
+     *
+     * @return void
+     */
+    public function testRadioOutOfRange()
+    {
+        $result = $this->Form->radio('Model.field', ['v' => 'value'], ['value' => 'nope']);
+        $expected = [
+            'input' => ['type' => 'hidden', 'name' => 'Model[field]', 'value' => ''],
+            'label' => ['for' => 'model-field-v'],
+            ['input' => ['type' => 'radio', 'name' => 'Model[field]', 'value' => 'v', 'id' => 'model-field-v']],
+            'value',
             '/label'
         ];
         $this->assertHtml($expected, $result);
@@ -6402,20 +6481,25 @@ class FormHelperTest extends TestCase
     {
         $hash = Security::hash(
             '/posts/delete/1' .
-            serialize([]) .
+            serialize(['id' => '1']) .
             '' .
             Security::salt()
         );
-        $hash .= '%3A';
+        $hash .= '%3Aid';
         $this->Form->request->params['_Token']['key'] = 'test';
 
-        $result = $this->Form->postLink('Delete', '/posts/delete/1');
+        $result = $this->Form->postLink(
+            'Delete',
+            '/posts/delete/1',
+            ['data' => ['id' => 1]]
+        );
         $expected = [
             'form' => [
                 'method' => 'post', 'action' => '/posts/delete/1',
                 'name', 'style' => 'display:none;'
             ],
             ['input' => ['type' => 'hidden', 'name' => '_method', 'value' => 'POST']],
+            ['input' => ['type' => 'hidden', 'name' => 'id', 'value' => '1']],
             'div' => ['style' => 'display:none;'],
             ['input' => ['type' => 'hidden', 'name' => '_Token[fields]', 'value' => $hash]],
             ['input' => ['type' => 'hidden', 'name' => '_Token[unlocked]', 'value' => '']],

@@ -7,7 +7,7 @@
  * Redistributions of files must retain the above copyright notice.
  *
  * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
- * @link          http://book.cakephp.org/2.0/en/development/testing.html CakePHP(tm) Tests
+ * @link          http://cakephp.org CakePHP(tm) Project
  * @since         1.2.0
  * @license       http://www.opensource.org/licenses/mit-license.php MIT License
  */
@@ -315,6 +315,11 @@ class TextTest extends TestCase
         $result = Text::tokenize('tagA "single tag" tagB', ' ', '"', '"');
         $expected = ['tagA', '"single tag"', 'tagB'];
         $this->assertEquals($expected, $result);
+
+        // Ideographic width space.
+        $result = Text::tokenize("tagA\xe3\x80\x80\"single\xe3\x80\x80tag\"\xe3\x80\x80tagB", "\xe3\x80\x80", '"', '"');
+        $expected = ['tagA', '"single　tag"', 'tagB'];
+        $this->assertEquals($expected, $result);
     }
 
     public function testReplaceWithQuestionMarkInString()
@@ -446,6 +451,76 @@ TEXT;
 This is the song that never ends.
 	This is the song that never ends.
 	This is the song that never ends.
+TEXT;
+        $this->assertTextEquals($expected, $result);
+    }
+
+    /**
+     * test wrapBlock() indentical to wrap()
+     *
+     * @return void
+     */
+    public function testWrapBlockIndenticalToWrap()
+    {
+        $text = 'This is the song that never ends. This is the song that never ends. This is the song that never ends.';
+        $result = Text::wrapBlock($text, 33);
+        $expected = Text::wrap($text, 33);
+        $this->assertTextEquals($expected, $result);
+
+        $result = Text::wrapBlock($text, ['width' => 33, 'indentAt' => 0]);
+        $expected = Text::wrap($text, ['width' => 33, 'indentAt' => 0]);
+        $this->assertTextEquals($expected, $result);
+    }
+
+    /**
+     * test wrapBlock() indenting from first line
+     *
+     * @return void
+     */
+    public function testWrapBlockWithIndentAt0()
+    {
+        $text = 'This is the song that never ends. This is the song that never ends. This is the song that never ends.';
+        $result = Text::wrapBlock($text, ['width' => 33, 'indent' => "\t", 'indentAt' => 0]);
+        $expected = <<<TEXT
+	This is the song that never
+	ends. This is the song that
+	never ends. This is the song
+	that never ends.
+TEXT;
+        $this->assertTextEquals($expected, $result);
+    }
+
+    /**
+     * test wrapBlock() indenting from second line
+     *
+     * @return void
+     */
+    public function testWrapBlockWithIndentAt1()
+    {
+        $text = 'This is the song that never ends. This is the song that never ends. This is the song that never ends.';
+        $result = Text::wrapBlock($text, ['width' => 33, 'indent' => "\t", 'indentAt' => 1]);
+        $expected = <<<TEXT
+This is the song that never ends.
+	This is the song that never
+	ends. This is the song that
+	never ends.
+TEXT;
+        $this->assertTextEquals($expected, $result);
+    }
+
+    /**
+     * test wrapBlock() indenting with multibyte caracters
+     *
+     * @return void
+     */
+    public function testWrapBlockIndentWithMultibyte()
+    {
+        $text = 'This is the song that never ends. 这是永远不会结束的歌曲。 This is the song that never ends.';
+        $result = Text::wrapBlock($text, ['width' => 33, 'indent' => " → ", 'indentAt' => 1]);
+        $expected = <<<TEXT
+This is the song that never ends.
+ → 这是永远不会结束的歌曲。 This is the song
+ → that never ends.
 TEXT;
         $this->assertTextEquals($expected, $result);
     }

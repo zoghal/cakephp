@@ -15,13 +15,47 @@
 namespace Cake\Test\TestCase\Database\Schema;
 
 use Cake\Database\Schema\Table;
+use Cake\Database\Type;
+use Cake\Datasource\ConnectionManager;
+use Cake\ORM\TableRegistry;
 use Cake\TestSuite\TestCase;
+
+/**
+ * Mock class for testing baseType inheritance
+ *
+ */
+class FooType extends Type
+{
+
+    public function getBaseType()
+    {
+        return 'integer';
+    }
+}
 
 /**
  * Test case for Table
  */
 class TableTest extends TestCase
 {
+
+    public $fixtures = ['core.articles_tags', 'core.products', 'core.orders', 'core.tags'];
+
+    protected $_map;
+
+    public function setUp()
+    {
+        $this->_map = Type::map();
+        parent::setUp();
+    }
+
+    public function tearDown()
+    {
+        TableRegistry::clear();
+        Type::clear();
+        Type::map($this->_map);
+        parent::tearDown();
+    }
 
     /**
      * Test construction with columns
@@ -120,6 +154,41 @@ class TableTest extends TestCase
         $this->assertEquals('string', $table->columnType('title'));
         $table->columnType('title', 'json');
         $this->assertEquals('json', $table->columnType('title'));
+    }
+
+    /**
+     * Tests getting the baseType as configured when creating the column
+     *
+     * @return void
+     */
+    public function testBaseColumnType()
+    {
+        $table = new Table('articles');
+        $table->addColumn('title', [
+            'type' => 'json',
+            'baseType' => 'text',
+            'length' => 25,
+            'null' => false
+        ]);
+        $this->assertEquals('json', $table->columnType('title'));
+        $this->assertEquals('text', $table->baseColumnType('title'));
+    }
+
+    /**
+     * Tests getting the base type as it is retuned by the Type class
+     *
+     * @return void
+     */
+    public function testBaseColumnTypeInherited()
+    {
+        Type::map('foo', __NAMESPACE__ . '\FooType');
+        $table = new Table('articles');
+        $table->addColumn('thing', [
+            'type' => 'foo',
+            'null' => false
+        ]);
+        $this->assertEquals('foo', $table->columnType('thing'));
+        $this->assertEquals('integer', $table->baseColumnType('thing'));
     }
 
     /**
@@ -406,6 +475,62 @@ class TableTest extends TestCase
     }
 
     /**
+     * Test single column foreign keys constraint support
+     *
+     * @return void
+     */
+    public function testConstraintForeignKey()
+    {
+        $table = TableRegistry::get('ArticlesTags');
+        $compositeConstraint = $table->schema()->constraint('tag_id_fk');
+        $expected = [
+            'type' => 'foreign',
+            'columns' => ['tag_id'],
+            'references' => ['tags', 'id'],
+            'update' => 'cascade',
+            'delete' => 'cascade',
+            'length' => []
+        ];
+
+        $this->assertEquals($expected, $compositeConstraint);
+
+        $expectedSubstring = 'CONSTRAINT <tag_id_fk> FOREIGN KEY \(<tag_id>\) REFERENCES <tags> \(<id>\)';
+        $this->assertQuotedQuery($expectedSubstring, $table->schema()->createSql(ConnectionManager::get('test'))[0]);
+    }
+
+    /**
+     * Test composite foreign keys support
+     *
+     * @return void
+     */
+    public function testConstraintForeignKeyTwoColumns()
+    {
+        $table = TableRegistry::get('Orders');
+        $compositeConstraint = $table->schema()->constraint('product_id_fk');
+        $expected = [
+            'type' => 'foreign',
+            'columns' => [
+                'product_id',
+                'product_category'
+            ],
+            'references' => [
+                'products',
+                ['id', 'category']
+            ],
+            'update' => 'cascade',
+            'delete' => 'cascade',
+            'length' => []
+        ];
+
+        $this->assertEquals($expected, $compositeConstraint);
+
+        $expectedSubstring = 'CONSTRAINT <product_id_fk> FOREIGN KEY \(<product_id>, <product_category>\)' .
+            ' REFERENCES <products> \(<id>, <category>\)';
+
+        $this->assertQuotedQuery($expectedSubstring, $table->schema()->createSql(ConnectionManager::get('test'))[0]);
+    }
+
+    /**
      * Provider for exceptionally bad foreign key data.
      *
      * @return array
@@ -461,5 +586,26 @@ class TableTest extends TestCase
         $this->assertTrue($table->temporary());
         $table->temporary(false);
         $this->assertFalse($table->temporary());
+    }
+
+    /**
+     * Assertion for comparing a regex pattern against a query having its identifiers
+     * quoted. It accepts queries quoted with the characters `<` and `>`. If the third
+     * parameter is set to true, it will alter the pattern to both accept quoted and
+     * unquoted queries
+     *
+     * @param string $pattern
+     * @param string $query the result to compare against
+     * @param bool $optional
+     * @return void
+     */
+    public function assertQuotedQuery($pattern, $query, $optional = false)
+    {
+        if ($optional) {
+            $optional = '?';
+        }
+        $pattern = str_replace('<', '[`"\[]' . $optional, $pattern);
+        $pattern = str_replace('>', '[`"\]]' . $optional, $pattern);
+        $this->assertRegExp('#' . $pattern . '#', $query);
     }
 }

@@ -1,6 +1,6 @@
 <?php
 /**
- * CakePHP(tm) Tests <http://book.cakephp.org/2.0/en/development/testing.html>
+ * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
  * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
@@ -8,7 +8,7 @@
  * Redistributions of files must retain the above copyright notice
  *
  * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
- * @link          http://book.cakephp.org/2.0/en/development/testing.html CakePHP(tm) Tests
+ * @link          http://cakephp.org CakePHP(tm) Project
  * @since         1.2.0
  * @license       http://www.opensource.org/licenses/mit-license.php MIT License
  */
@@ -974,6 +974,28 @@ class AuthComponentTest extends TestCase
     }
 
     /**
+     * test ajax unauthenticated
+     *
+     * @return void
+     * @triggers Controller.startup $this->Controller
+     */
+    public function testAjaxUnauthenticated()
+    {
+        $this->Controller->request = new Request([
+            'url' => '/ajax_auth/add',
+            'environment' => ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'],
+        ]);
+        $this->Controller->request->params['action'] = 'add';
+
+        $event = new Event('Controller.startup', $this->Controller);
+        $response = $this->Auth->startup($event);
+
+        $this->assertTrue($event->isStopped());
+        $this->assertEquals(403, $response->statusCode());
+        $this->assertArrayNotHasKey('Location', $response->header());
+    }
+
+    /**
      * testLoginActionRedirect method
      *
      * @return void
@@ -1395,5 +1417,26 @@ class AuthComponentTest extends TestCase
 
         $this->Auth->sessionKey = false;
         $this->assertInstanceOf('Cake\Auth\Storage\MemoryStorage', $this->Auth->storage());
+    }
+
+    /**
+     * Test that setting config 'earlyAuth' to true make AuthComponent do the initial
+     * checks in beforeFilter() instead of startup().
+     *
+     * @return void
+     */
+    public function testCheckAuthInConfig()
+    {
+        $this->Controller->components()->set('Auth', $this->Auth);
+        $this->Auth->earlyAuthTest = true;
+
+        $this->Auth->authCheckCalledFrom = null;
+        $this->Controller->startupProcess();
+        $this->assertEquals('Controller.startup', $this->Auth->authCheckCalledFrom);
+
+        $this->Auth->authCheckCalledFrom = null;
+        $this->Auth->config('checkAuthIn', 'Controller.initialize');
+        $this->Controller->startupProcess();
+        $this->assertEquals('Controller.initialize', $this->Auth->authCheckCalledFrom);
     }
 }

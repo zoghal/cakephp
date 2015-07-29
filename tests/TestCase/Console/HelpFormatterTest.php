@@ -2,7 +2,7 @@
 /**
  * HelpFormatterTest file
  *
- * CakePHP(tm) Tests <http://book.cakephp.org/2.0/en/development/testing.html>
+ * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
  * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
@@ -10,7 +10,7 @@
  * Redistributions of files must retain the above copyright notice
  *
  * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
- * @link          http://book.cakephp.org/2.0/en/development/testing.html CakePHP(tm) Tests
+ * @link          http://cakephp.org CakePHP(tm) Project
  * @since         2.0.0
  * @license       http://www.opensource.org/licenses/mit-license.php MIT License
  */
@@ -155,6 +155,9 @@ txt;
         $parser = new ConsoleOptionParser('mycommand', false);
         $parser->addSubcommand('method', ['help' => 'This is another command'])
             ->addOption('test', ['help' => 'A test option.']);
+        $parser->addSubcommand('plugin', ['help' =>
+            'Create the directory structure, AppController class and testing setup for a new plugin. ' .
+            'Can create plugins in any of your bootstrapped plugin paths.']);
 
         $formatter = new HelpFormatter($parser);
         $result = $formatter->text();
@@ -165,6 +168,9 @@ cake mycommand [subcommand] [-h] [--test]
 <info>Subcommands:</info>
 
 method  This is another command
+plugin  Create the directory structure, AppController class and testing
+        setup for a new plugin. Can create plugins in any of your
+        bootstrapped plugin paths.
 
 To see help on a subcommand use <info>`cake mycommand [subcommand] --help`</info>
 

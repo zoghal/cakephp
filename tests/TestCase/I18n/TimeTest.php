@@ -2,7 +2,7 @@
 /**
  * TimeTest file
  *
- * CakePHP(tm) Tests <http://book.cakephp.org/2.0/en/development/testing.html>
+ * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
  * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
@@ -10,7 +10,7 @@
  * Redistributions of files must retain the above copyright notice
  *
  * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
- * @link          http://book.cakephp.org/2.0/en/development/testing.html CakePHP(tm) Tests
+ * @link          http://cakephp.org CakePHP(tm) Project
  * @since         1.2.0
  * @license       http://www.opensource.org/licenses/mit-license.php MIT License
  */
@@ -589,6 +589,7 @@ class TimeTest extends TestCase
     /**
      * test formatting dates with offset style timezone
      *
+     * @see https://github.com/facebook/hhvm/issues/3637
      * @return void
      */
     public function testI18nFormatWithOffsetTimezone()
@@ -825,6 +826,22 @@ class TimeTest extends TestCase
         $result = Time::parseDate('12/03/2015');
         $this->assertEquals('2015-03-12', $result->format('Y-m-d'));
         $this->assertEquals(new \DateTimeZone('Europe/Paris'), $result->tz);
+    }
+
+    /**
+     * Tests the "from now" time calculation.
+     *
+     * @return void
+     */
+    public function testFromNow()
+    {
+        $date = clone $this->now;
+        $date->modify('-1 year');
+        $date->modify('-6 days');
+        $date->modify('-51 seconds');
+        $interval = Time::fromNow($date);
+        $result = $interval->format("%y %m %d %H %i %s");
+        $this->assertEquals($result, '1 0 6 00 0 51');
     }
 
     /**

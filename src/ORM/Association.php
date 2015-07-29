@@ -101,6 +101,13 @@ abstract class Association
     protected $_className;
 
     /**
+     * The field name in the owning side table that is used to match with the foreignKey
+     *
+     * @var string|array
+     */
+    protected $_bindingKey;
+
+    /**
      * The name of the field representing the foreign key to the table to load
      *
      * @var string|array
@@ -197,6 +204,7 @@ abstract class Association
             'conditions',
             'dependent',
             'finder',
+            'bindingKey',
             'foreignKey',
             'joinType',
             'tableLocator',
@@ -318,6 +326,30 @@ abstract class Association
             $this->_conditions = $conditions;
         }
         return $this->_conditions;
+    }
+
+    /**
+     * Sets the name of the field representing the binding field with the target table.
+     * When not manually specified the primary key of the owning side table is used.
+     *
+     * If no parameters are passed the current field is returned
+     *
+     * @param string|null $key the table field to be used to link both tables together
+     * @return string|array
+     */
+    public function bindingKey($key = null)
+    {
+        if ($key !== null) {
+            $this->_bindingKey = $key;
+        }
+
+        if ($this->_bindingKey === null) {
+            $this->_bindingKey = $this->isOwningSide($this->source()) ?
+                $this->source()->primaryKey() :
+                $this->target()->primaryKey();
+        }
+
+        return $this->_bindingKey;
     }
 
     /**
@@ -471,6 +503,8 @@ abstract class Association
      *   properties to be followed from the passed query main entity to this
      *   association
      * - joinType: The SQL join type to use in the query.
+     * - negateMatch: Will append a condition to the passed query for excluding matches.
+     *   with this association.
      *
      * @param Query $query the query to be altered to include the target table data
      * @param array $options Any extra options or overrides to be taken in account
@@ -518,11 +552,32 @@ abstract class Association
 
         $joinOptions = ['table' => 1, 'conditions' => 1, 'type' => 1];
         $options['conditions'] = $dummy->clause('where');
-        $query->join([$target->alias() => array_intersect_key($options, $joinOptions)]);
+        $query->join([$this->_name => array_intersect_key($options, $joinOptions)]);
 
         $this->_appendFields($query, $dummy, $options);
         $this->_formatAssociationResults($query, $dummy, $options);
         $this->_bindNewAssociations($query, $dummy, $options);
+        $this->_appendNotMatching($query, $options);
+    }
+
+    /**
+     * Conditionally adds a condition to the passed Query that will make it find
+     * records where there is no match with this association.
+     *
+     * @param \Cake\Database\Query $query The query to modify
+     * @param array $options Options array containing the `negateMatch` key.
+     * @return void
+     */
+    protected function _appendNotMatching($query, $options)
+    {
+        $target = $this->_targetTable;
+        if (!empty($options['negateMatch'])) {
+            $primaryKey = $query->aliasFields((array)$target->primaryKey(), $this->_name);
+            $query->andWhere(function ($exp) use ($primaryKey) {
+                array_map([$exp, 'isNull'], $primaryKey);
+                return $exp;
+            });
+        }
     }
 
     /**
@@ -757,20 +812,20 @@ abstract class Association
         $tAlias = $this->target()->alias();
         $sAlias = $this->source()->alias();
         $foreignKey = (array)$options['foreignKey'];
-        $primaryKey = (array)$this->_sourceTable->primaryKey();
+        $bindingKey = (array)$this->bindingKey();
 
-        if (count($foreignKey) !== count($primaryKey)) {
+        if (count($foreignKey) !== count($bindingKey)) {
             $msg = 'Cannot match provided foreignKey for "%s", got "(%s)" but expected foreign key for "(%s)"';
             throw new RuntimeException(sprintf(
                 $msg,
                 $this->_name,
                 implode(', ', $foreignKey),
-                implode(', ', $primaryKey)
+                implode(', ', $bindingKey)
             ));
         }
 
         foreach ($foreignKey as $k => $f) {
-            $field = sprintf('%s.%s', $sAlias, $primaryKey[$k]);
+            $field = sprintf('%s.%s', $sAlias, $bindingKey[$k]);
             $value = new IdentifierExpression(sprintf('%s.%s', $tAlias, $f));
             $conditions[$field] = $value;
         }

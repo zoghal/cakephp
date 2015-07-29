@@ -1,6 +1,6 @@
 <?php
 /**
- * CakePHP(tm) Tests <http://book.cakephp.org/2.0/en/development/testing.html>
+ * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
  * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
@@ -8,17 +8,17 @@
  * Redistributions of files must retain the above copyright notice
  *
  * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
- * @link          http://book.cakephp.org/2.0/en/development/testing.html CakePHP(tm) Tests
+ * @link          http://cakephp.org CakePHP(tm) Project
  * @since         2.0.0
  * @license       http://www.opensource.org/licenses/mit-license.php MIT License
  */
-namespace Cake\Test\TestCase\Network\Email;
+namespace Cake\Test\TestCase\Mailer;
 
 use Cake\Core\Configure;
 use Cake\Core\Plugin;
 use Cake\Log\Log;
-use Cake\Network\Email\DebugTransport;
-use Cake\Network\Email\Email;
+use Cake\Mailer\Email;
+use Cake\Mailer\Transport\DebugTransport;
 use Cake\ORM\TableRegistry;
 use Cake\TestSuite\TestCase;
 use Exception;
@@ -100,9 +100,12 @@ class EmailTest extends TestCase
         parent::setUp();
         $this->CakeEmail = new TestEmail();
 
-        Email::configTransport('debug', [
-            'className' => 'Debug'
-        ]);
+        $this->transports = [
+            'debug' => [
+                'className' => 'Debug'
+            ]
+        ];
+        Email::configTransport($this->transports);
     }
 
     /**
@@ -660,7 +663,7 @@ class EmailTest extends TestCase
         $this->assertSame($expected, $this->CakeEmail->getHeaders(['from' => true, 'to' => true]));
 
         $result = $this->CakeEmail->setHeaders([]);
-        $this->assertInstanceOf('Cake\Network\Email\Email', $result);
+        $this->assertInstanceOf('Cake\Mailer\Email', $result);
     }
 
     /**
@@ -771,9 +774,9 @@ class EmailTest extends TestCase
         $this->assertSame($this->CakeEmail, $result);
 
         $result = $this->CakeEmail->transport();
-        $this->assertInstanceOf('Cake\Network\Email\DebugTransport', $result);
+        $this->assertInstanceOf('Cake\Mailer\Transport\DebugTransport', $result);
 
-        $instance = $this->getMock('Cake\Network\Email\DebugTransport');
+        $instance = $this->getMock('Cake\Mailer\Transport\DebugTransport');
         $this->CakeEmail->transport($instance);
         $this->assertSame($instance, $this->CakeEmail->transport());
     }
@@ -879,6 +882,22 @@ class EmailTest extends TestCase
         $instance = new DebugTransport();
         Email::configTransport('debug', $instance);
         $this->assertEquals(['className' => $instance], Email::configTransport('debug'));
+    }
+
+    /**
+     * Test enumerating all transport configurations
+     *
+     * @return void
+     */
+    public function testConfiguredTransport()
+    {
+        $result = Email::configuredTransport();
+        $this->assertInternalType('array', $result, 'Should have config keys');
+        $this->assertEquals(
+            array_keys($this->transports),
+            $result,
+            'Loaded transports should be present in enumeration.'
+        );
     }
 
     /**
@@ -988,7 +1007,7 @@ class EmailTest extends TestCase
         $this->assertEquals($config['theme'], $result);
 
         $result = $this->CakeEmail->transport();
-        $this->assertInstanceOf('Cake\Network\Email\DebugTransport', $result);
+        $this->assertInstanceOf('Cake\Mailer\Transport\DebugTransport', $result);
 
         $result = $this->CakeEmail->helpers();
         $this->assertEquals($config['helpers'], $result);
@@ -1646,7 +1665,7 @@ class EmailTest extends TestCase
         $this->CakeEmail->viewVars(['time' => $timestamp]);
 
         $result = $this->CakeEmail->helpers(['Time']);
-        $this->assertInstanceOf('Cake\Network\Email\Email', $result);
+        $this->assertInstanceOf('Cake\Mailer\Email', $result);
 
         $result = $this->CakeEmail->send();
         $dateTime = new \DateTime;
@@ -1823,7 +1842,7 @@ class EmailTest extends TestCase
     public function testDeliver()
     {
         $instance = Email::deliver('all@cakephp.org', 'About', 'Everything ok', ['from' => 'root@cakephp.org'], false);
-        $this->assertInstanceOf('Cake\Network\Email\Email', $instance);
+        $this->assertInstanceOf('Cake\Mailer\Email', $instance);
         $this->assertSame($instance->to(), ['all@cakephp.org' => 'all@cakephp.org']);
         $this->assertSame($instance->subject(), 'About');
         $this->assertSame($instance->from(), ['root@cakephp.org' => 'root@cakephp.org']);
@@ -2032,7 +2051,7 @@ class EmailTest extends TestCase
         $this->assertEquals($configs['subject'], $result);
 
         $result = $this->CakeEmail->transport();
-        $this->assertInstanceOf('Cake\Network\Email\DebugTransport', $result);
+        $this->assertInstanceOf('Cake\Mailer\Transport\DebugTransport', $result);
 
         $result = $this->CakeEmail->send('This is the message');
 
@@ -2088,7 +2107,7 @@ class EmailTest extends TestCase
         $this->assertEquals($configs['subject'], $result);
 
         $result = $this->CakeEmail->transport();
-        $this->assertInstanceOf('Cake\Network\Email\DebugTransport', $result);
+        $this->assertInstanceOf('Cake\Mailer\Transport\DebugTransport', $result);
 
         $result = $this->CakeEmail->send('This is the message');
 
@@ -2107,7 +2126,7 @@ class EmailTest extends TestCase
         $this->assertEquals('Cake\View\View', $result);
 
         $result = $this->CakeEmail->viewRender('Cake\View\ThemeView');
-        $this->assertInstanceOf('Cake\Network\Email\Email', $result);
+        $this->assertInstanceOf('Cake\Mailer\Email', $result);
 
         $result = $this->CakeEmail->viewRender();
         $this->assertEquals('Cake\View\ThemeView', $result);
@@ -2124,7 +2143,7 @@ class EmailTest extends TestCase
         $this->assertEquals('text', $result);
 
         $result = $this->CakeEmail->emailFormat('html');
-        $this->assertInstanceOf('Cake\Network\Email\Email', $result);
+        $this->assertInstanceOf('Cake\Mailer\Email', $result);
 
         $result = $this->CakeEmail->emailFormat();
         $this->assertEquals('html', $result);
@@ -2563,7 +2582,7 @@ HTML;
      */
     public function testMockTransport()
     {
-        $mock = $this->getMock('\Cake\Network\Email\AbstractTransport');
+        $mock = $this->getMock('\Cake\Mailer\AbstractTransport');
         $config = ['from' => 'tester@example.org', 'transport' => 'default'];
 
         Email::config('default', $config);

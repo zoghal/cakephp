@@ -415,8 +415,8 @@ class Validation
         }
         $parts = explode(' ', $check);
         if (!empty($parts) && count($parts) > 1) {
-            $time = array_pop($parts);
-            $date = implode(' ', $parts);
+            $date = array_shift($parts);
+            $time = implode(' ', $parts);
             $valid = static::date($date, $dateFormat, $regex) && static::time($time);
         }
         return $valid;
@@ -654,7 +654,9 @@ class Validation
         $defaults = ['in' => null, 'max' => null, 'min' => null];
         $options += $defaults;
 
-        $check = array_filter((array)$check);
+        $check = array_filter((array)$check, function ($value) {
+            return ($value || is_numeric($value));
+        });
         if (empty($check)) {
             return false;
         }

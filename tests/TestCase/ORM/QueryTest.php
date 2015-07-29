@@ -835,8 +835,7 @@ class QueryTest extends TestCase
 
         $this->assertEquals(1, $query->clause('limit'));
 
-        $expected = new QueryExpression(['a > b']);
-        $expected->typeMap($this->fooTypeMap);
+        $expected = new QueryExpression(['a > b'], $this->fooTypeMap);
         $result = $query->clause('join');
         $this->assertEquals([
             'table_a' => ['alias' => 'table_a', 'type' => 'INNER', 'conditions' => $expected]
@@ -2652,6 +2651,39 @@ class QueryTest extends TestCase
     }
 
     /**
+     * Tests that select() can be called with Table and Association
+     * instance
+     *
+     * @return void
+     */
+    public function testSelectWithTableAndAssociationInstance()
+    {
+        $table = TableRegistry::get('articles');
+        $table->belongsTo('authors');
+        $result = $table
+            ->find()
+            ->select(function ($q) {
+                return ['foo' => $q->newExpr('1 + 1')];
+            })
+            ->select($table)
+            ->select($table->authors)
+            ->contain(['authors'])
+            ->first();
+
+        $expected = $table
+            ->find()
+            ->select(function ($q) {
+                return ['foo' => $q->newExpr('1 + 1')];
+            })
+            ->autoFields(true)
+            ->contain(['authors'])
+            ->first();
+
+        $this->assertNotEmpty($result);
+        $this->assertEquals($expected, $result);
+    }
+
+    /**
      * Tests that isEmpty() can be called on a query
      *
      * @return void
@@ -2679,7 +2711,7 @@ class QueryTest extends TestCase
             ->select(['total_articles' => 'count(articles.id)'])
             ->autoFields(true)
             ->leftJoinWith('articles')
-            ->group(['authors.id']);
+            ->group(['authors.id', 'authors.name']);
 
         $expected = [
             1 => 2,
@@ -2728,7 +2760,7 @@ class QueryTest extends TestCase
                 return $q->where(['tags.name' => 'tag3']);
             })
             ->autoFields(true)
-            ->group(['authors.id']);
+            ->group(['authors.id', 'authors.name']);
 
         $expected = [
             1 => 2,
@@ -2843,5 +2875,144 @@ class QueryTest extends TestCase
             ->matching('articles')
             ->toArray();
         $this->assertEquals($expected, $results);
+    }
+
+    /**
+     * Tests notMatching() with and without conditions
+     *
+     * @return void
+     */
+    public function testNotMatching()
+    {
+        $table = TableRegistry::get('authors');
+        $table->hasMany('articles');
+
+        $results = $table->find()
+            ->hydrate(false)
+            ->notMatching('articles')
+            ->toArray();
+
+        $expected = [
+            ['id' => 2, 'name' => 'nate'],
+            ['id' => 4, 'name' => 'garrett'],
+        ];
+        $this->assertEquals($expected, $results);
+
+        $results = $table->find()
+            ->hydrate(false)
+            ->notMatching('articles', function ($q) {
+                return $q->where(['articles.author_id' => 1]);
+            })
+            ->toArray();
+        $expected = [
+            ['id' => 2, 'name' => 'nate'],
+            ['id' => 3, 'name' => 'larry'],
+            ['id' => 4, 'name' => 'garrett'],
+        ];
+        $this->assertEquals($expected, $results);
+    }
+
+    /**
+     * Tests notMatching() with a belongsToMany association
+     *
+     * @return void
+     */
+    public function testNotMatchingBelongsToMany()
+    {
+        $table = TableRegistry::get('articles');
+        $table->belongsToMany('tags');
+
+        $results = $table->find()
+            ->hydrate(false)
+            ->notMatching('tags', function ($q) {
+                return $q->where(['tags.name' => 'tag2']);
+            })
+            ->toArray();
+
+        $expected = [
+            [
+                'id' => 2,
+                'author_id' => 3,
+                'title' => 'Second Article',
+                'body' => 'Second Article Body',
+                'published' => 'Y'
+            ],
+            [
+                'id' => 3,
+                'author_id' => 1,
+                'title' => 'Third Article',
+                'body' => 'Third Article Body',
+                'published' => 'Y'
+            ]
+        ];
+        $this->assertEquals($expected, $results);
+    }
+
+    /**
+     * Tests notMatching() with a deeply nested belongsToMany association.
+     *
+     * @return void
+     */
+    public function testNotMatchingDeep()
+    {
+        $table = TableRegistry::get('authors');
+        $articles = $table->hasMany('articles');
+        $articles->belongsToMany('tags');
+
+        $results = $table->find()
+            ->hydrate(false)
+            ->notMatching('articles.tags', function ($q) {
+                return $q->where(['tags.name' => 'tag3']);
+            })
+            ->distinct(['authors.id']);
+
+        $this->assertEquals([1, 2, 4], $results->extract('id')->toList());
+
+        $results = $table->find()
+            ->hydrate(false)
+            ->notMatching('articles.tags', function ($q) {
+                return $q->where(['tags.name' => 'tag3']);
+            })
+            ->matching('articles')
+            ->distinct(['authors.id']);
+
+        $this->assertEquals([1], $results->extract('id')->toList());
+    }
+
+    /**
+     * Tests that it is possible to nest a notMatching call inside another
+     * eagerloader function.
+     *
+     * @return void
+     */
+    public function testNotMatchingNested()
+    {
+        $table = TableRegistry::get('authors');
+        $articles = $table->hasMany('articles');
+        $articles->belongsToMany('tags');
+
+        $results = $table->find()
+            ->hydrate(false)
+            ->matching('articles', function ($q) {
+                return $q->notMatching('tags', function ($q) {
+                    return $q->where(['tags.name' => 'tag3']);
+                });
+            })
+            ->order(['authors.id' => 'ASC', 'articles.id' => 'ASC']);
+
+        $expected = [
+            'id' => 1,
+            'name' => 'mariano',
+            '_matchingData' => [
+                'articles' => [
+                    'id' => 1,
+                    'author_id' => 1,
+                    'title' => 'First Article',
+                    'body' => 'First Article Body',
+                    'published' => 'Y'
+                ]
+            ]
+        ];
+        $this->assertEquals($expected, $results->first());
     }
 }

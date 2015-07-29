@@ -315,6 +315,41 @@ class ResponseTest extends TestCase
     }
 
     /**
+     * Tests the send method and changing the content type
+     *
+     * @return void
+     */
+    public function testSendWithCallableBody()
+    {
+        $response = $this->getMock('Cake\Network\Response', ['_sendHeader']);
+        $response->body(function () {
+            echo 'the response body';
+        });
+
+        ob_start();
+        $response->send();
+        $this->assertEquals('the response body', ob_get_clean());
+    }
+
+    /**
+     * Tests that the returned a string from a body callable is also sent
+     * as the response body
+     *
+     * @return void
+     */
+    public function testSendWithCallableBodyWithReturn()
+    {
+        $response = $this->getMock('Cake\Network\Response', ['_sendHeader']);
+        $response->body(function () {
+            return 'the response body';
+        });
+
+        ob_start();
+        $response->send();
+        $this->assertEquals('the response body', ob_get_clean());
+    }
+
+    /**
      * Tests the disableCache method
      *
      * @return void
@@ -1124,12 +1159,25 @@ class ResponseTest extends TestCase
      * test file with ..
      *
      * @expectedException \Cake\Network\Exception\NotFoundException
+     * @expectedExceptionMessage The requested file contains `..` and will not be read.
      * @return void
      */
     public function testFileWithPathTraversal()
     {
         $response = new Response();
         $response->file('my/../cat.gif');
+    }
+    /**
+     * test file with ..
+     *
+     * @expectedException \Cake\Network\Exception\NotFoundException
+     * @expectedExceptionMessage my/ca..t.gif was not found or not readable
+     * @return void
+     */
+    public function testFileWithDotIntheName()
+    {
+        $response = new Response();
+        $response->file('my/ca..t.gif');
     }
 
     /**

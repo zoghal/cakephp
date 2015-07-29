@@ -1,6 +1,6 @@
 <?php
 /**
- * CakePHP(tm) Tests <http://book.cakephp.org/2.0/en/development/testing.html>
+ * CakePHP(tm) : Rapid Development Framework (http://cakephp.org)
  * Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
  *
  * Licensed under The MIT License
@@ -8,7 +8,7 @@
  * Redistributions of files must retain the above copyright notice
  *
  * @copyright     Copyright (c) Cake Software Foundation, Inc. (http://cakefoundation.org)
- * @link          http://book.cakephp.org/2.0/en/development/testing.html CakePHP(tm) Tests
+ * @link          http://cakephp.org CakePHP(tm) Project
  * @since         1.2.0
  * @license       http://www.opensource.org/licenses/mit-license.php MIT License
  */
@@ -511,6 +511,32 @@ class I18nTest extends TestCase
         $translator = I18n::translator('custom', 'fr_FR');
         $this->assertEquals('Le moo', $translator->translate('Cow'));
         $this->assertEquals('Le bark', $translator->translate('Dog'));
+    }
+
+    /**
+     * Test that the translation fallback can be disabled
+     *
+     * @return void
+     */
+    public function testFallbackTranslatorDisabled()
+    {
+        I18n::useFallback(false);
+
+        I18n::translator('default', 'fr_FR', function () {
+            $package = new Package('default');
+            $package->setMessages(['Dog' => 'Le bark']);
+            return $package;
+        });
+
+        I18n::translator('custom', 'fr_FR', function () {
+            $package = new Package('default');
+            $package->setMessages(['Cow' => 'Le moo']);
+            return $package;
+        });
+
+        $translator = I18n::translator('custom', 'fr_FR');
+        $this->assertEquals('Le moo', $translator->translate('Cow'));
+        $this->assertEquals('Dog', $translator->translate('Dog'));
     }
 
     /**

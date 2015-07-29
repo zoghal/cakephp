@@ -272,7 +272,7 @@ class Time extends Carbon implements JsonSerializable
     public function timeAgoInWords(array $options = [])
     {
         $time = $this;
-        
+
         $timezone = null;
         $format = static::$wordFormat;
         $end = static::$wordEnd;
@@ -943,6 +943,18 @@ class Time extends Carbon implements JsonSerializable
         $temp = $temp->toArray();
         $temp = str_replace(array_keys($temp), array_values($temp), $pattern);
         return $temp;
+    }
+
+    /**
+     * Convenience method for getting the remaining time from a given time.
+     *
+     * @param DateTime $datetime The date to get the remaining time from.
+     * @return DateInterval|boolean The DateInterval object representing the difference between the two dates or FALSE on failure.
+     */
+    public static function fromNow($datetime)
+    {
+        $timeNow = new Time();
+        return $timeNow->diff($datetime);
     }
 
     /**

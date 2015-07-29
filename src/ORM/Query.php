@@ -125,6 +125,30 @@ class Query extends DatabaseQuery implements JsonSerializable
     }
 
     /**
+     * {@inheritDoc}
+     *
+     * If you pass an instance of a `Cake\ORM\Table` or `Cake\ORM\Association` class,
+     * all the fields in the schema of the table or the association will be added to
+     * the select clause.
+     *
+     * @param array|ExpressionInterface|string|\Cake\ORM\Table|\Cake\ORM\Association $fields fields
+     * to be added to the list.
+     * @param bool $overwrite whether to reset fields with passed list or not
+     */
+    public function select($fields = [], $overwrite = false)
+    {
+        if ($fields instanceof Association) {
+            $fields = $fields->target();
+        }
+
+        if ($fields instanceof Table) {
+            $fields = $this->aliasFields($fields->schema()->columns(), $fields->alias());
+        }
+
+        return parent::select($fields, $overwrite);
+    }
+
+    /**
      * Hints this object to associate the correct types when casting conditions
      * for the database. This is done by extracting the field types from the schema
      * associated to the passed table object. This prevents the user from repeating
@@ -143,7 +167,7 @@ class Query extends DatabaseQuery implements JsonSerializable
         foreach ($schema->columns() as $f) {
             $fields[$f] = $fields[$alias . '.' . $f] = $schema->columnType($f);
         }
-        $this->defaultTypes($fields);
+        $this->typeMap()->addDefaults($fields);
 
         return $this;
     }
@@ -450,6 +474,67 @@ class Query extends DatabaseQuery implements JsonSerializable
         $this->eagerLoader()->matching($assoc, $builder, [
             'joinType' => 'INNER',
             'fields' => false
+        ]);
+        $this->_dirty();
+        return $this;
+    }
+
+    /**
+     * Adds filtering conditions to this query to only bring rows that have no match
+     * to another from an associated table, based on conditions in the associated table.
+     *
+     * This function will add entries in the `contain` graph.
+     *
+     * ### Example:
+     *
+     * ```
+     *  // Bring only articles that were not tagged with 'cake'
+     *  $query->notMatching('Tags', function ($q) {
+     *      return $q->where(['name' => 'cake']);
+     *  );
+     * ```
+     *
+     * It is possible to filter by deep associations by using dot notation:
+     *
+     * ### Example:
+     *
+     * ```
+     *  // Bring only articles that weren't commented by 'markstory'
+     *  $query->notMatching('Comments.Users', function ($q) {
+     *      return $q->where(['username' => 'markstory']);
+     *  );
+     * ```
+     *
+     * As this function will create a `LEFT JOIN`, you might want to consider
+     * calling `distinct` on this query as you might get duplicate rows if
+     * your conditions don't filter them already. This might be the case, for example,
+     * of the same article having multiple comments.
+     *
+     * ### Example:
+     *
+     * ```
+     *  // Bring unique articles that were commented by 'markstory'
+     *  $query->distinct(['Articles.id'])
+     *  ->notMatching('Comments.Users', function ($q) {
+     *      return $q->where(['username' => 'markstory']);
+     *  );
+     * ```
+     *
+     * Please note that the query passed to the closure will only accept calling
+     * `select`, `where`, `andWhere` and `orWhere` on it. If you wish to
+     * add more complex clauses you can do it directly in the main query.
+     *
+     * @param string $assoc The association to filter by
+     * @param callable $builder a function that will receive a pre-made query object
+     * that can be used to add custom conditions or selecting some fields
+     * @return $this
+     */
+    public function notMatching($assoc, callable $builder = null)
+    {
+        $this->eagerLoader()->matching($assoc, $builder, [
+            'joinType' => 'LEFT',
+            'fields' => false,
+            'negateMatch' => true
         ]);
         $this->_dirty();
         return $this;
