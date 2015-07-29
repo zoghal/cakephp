@@ -481,6 +481,8 @@ class DateTimeWidget implements WidgetInterface
             $options['start'],
             $options['format'],
             $options['leadingZeroKey'],
+            $options['leadingZeroValue'],
+            $options['localization']
         );
         return $this->_select->render($options, $context);
     }
@@ -553,10 +555,11 @@ class DateTimeWidget implements WidgetInterface
         $options += [
             'name' => '',
             'val' => null,
-            'options' => ['am' => 'am', 'pm' => 'pm'],
-            'templateVars' => [],
+            'options' => [
+                'am' => $date->i18nFormat('a'),
                 'pm' => $date->addHours(12)->i18nFormat('a')
-            ]
+            ],
+            'templateVars' => [],
         ];
 
         unset($options['localization']);
