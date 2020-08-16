@@ -1,122 +1,89 @@
 language: php
 
-php:
-  - 5.2
-  - 5.3
-  - 5.4
-  - 5.5
-
-env:
-  - DB=mysql
-  - DB=pgsql
-  - DB=sqlite
+dist: xenial
 
 services:
   - memcached
+  - redis-server
+  - postgresql
+  - mysql
+
+addons:
+  postgresql: '9.6'
+
+cache:
+  directories:
+    - $HOME/.composer/cache
+
+php:
+  - 7.4
+
+env:
+  matrix:
+    - DB=mysql DB_URL='mysql://root@127.0.0.1/cakephp_test?init[]=SET sql_mode = "STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION"'
+    - DB=pgsql DB_URL='postgres://postgres@127.0.0.1/cakephp_test'
+    - DB=sqlite DB_URL='sqlite:///:memory:'
 
 matrix:
   include:
-    - php: 5.4
-      env:
-        - PHPCS=1
+    - php: 7.2
+      env: PREFER_LOWEST=1
+    - php: nightly
+      env: DB=sqlite DB_URL='sqlite:///:memory:'
 
-before_script:
-  - sudo locale-gen de_DE
-  - sh -c "if [ '$DB' = 'mysql' ]; then mysql -e 'CREATE DATABASE cakephp_test;'; fi"
-  - sh -c "if [ '$DB' = 'mysql' ]; then mysql -e 'CREATE DATABASE cakephp_test2;'; fi"
-  - sh -c "if [ '$DB' = 'mysql' ]; then mysql -e 'CREATE DATABASE cakephp_test3;'; fi"
-  - sh -c "if [ '$DB' = 'pgsql' ]; then psql -c 'CREATE DATABASE cakephp_test;' -U postgres; fi"
-  - sh -c "if [ '$DB' = 'pgsql' ]; then psql -c 'CREATE SCHEMA test2;' -U postgres -d cakephp_test; fi"
-  - sh -c "if [ '$DB' = 'pgsql' ]; then psql -c 'CREATE SCHEMA test3;' -U postgres -d cakephp_test; fi"
-  - chmod -R 777 ./app/tmp
-  - sudo apt-get install lighttpd
-  - sh -c "if [ '$PHPCS' = '1' ]; then pear channel-discover pear.cakephp.org; fi"
-  - sh -c "if [ '$PHPCS' = '1' ]; then pear install --alldeps cakephp/CakePHP_CodeSniffer; fi"
-  - echo "extension = memcached.so" >> ~/.phpenv/versions/$(phpenv version-name)/etc/php.ini
-  - phpenv rehash
-  - set +H
-  - echo "<?php
-    class DATABASE_CONFIG {
-    private \$identities = array(
-      'mysql' => array(
-        'datasource' => 'Database/Mysql',
-        'host' => '0.0.0.0',
-        'login' => 'travis'
-      ),
-      'pgsql' => array(
-        'datasource' => 'Database/Postgres',
-        'host' => '127.0.0.1',
-        'login' => 'postgres',
-        'database' => 'cakephp_test',
-        'schema' => array(
-          'default' => 'public',
-          'test' => 'public',
-          'test2' => 'test2',
-          'test_database_three' => 'test3'
-        )
-      ),
-      'sqlite' => array(
-        'datasource' => 'Database/Sqlite',
-        'database' => array(
-          'default' => ':memory:',
-          'test' => ':memory:',
-          'test2' => '/tmp/cakephp_test2.db',
-          'test_database_three' => '/tmp/cakephp_test3.db'
-        ),
-      )
-    );
-    public \$default = array(
-      'persistent' => false,
-      'host' => '',
-      'login' => '',
-      'password' => '',
-      'database' => 'cakephp_test',
-      'prefix' => ''
-    );
-    public \$test = array(
-      'persistent' => false,
-      'host' => '',
-      'login' => '',
-      'password' => '',
-      'database' => 'cakephp_test',
-      'prefix' => ''
-    );
-    public \$test2 = array(
-      'persistent' => false,
-      'host' => '',
-      'login' => '',
-      'password' => '',
-      'database' => 'cakephp_test2',
-      'prefix' => ''
-    );
-    public \$test_database_three = array(
-      'persistent' => false,
-      'host' => '',
-      'login' => '',
-      'password' => '',
-      'database' => 'cakephp_test3',
-      'prefix' => ''
-    );
-    public function __construct() {
-      \$db = 'mysql';
-      if (!empty(\$_SERVER['DB'])) {
-        \$db = \$_SERVER['DB'];
-      }
-      foreach (array('default', 'test', 'test2', 'test_database_three') as \$source) {
-        \$config = array_merge(\$this->{\$source}, \$this->identities[\$db]);
-        if (is_array(\$config['database'])) {
-          \$config['database'] = \$config['database'][\$source];
-        }
-        if (!empty(\$config['schema']) && is_array(\$config['schema'])) {
-          \$config['schema'] = \$config['schema'][\$source];
-        }
-        \$this->{\$source} = \$config;
-      }
-    }
-    }" > app/Config/database.php
+  allow_failures:
+    - php: nightly
+
+  fast_finish: true
+
+before_install:
+  - echo cakephp version && tail -1 VERSION.txt
+
+  - if [[ $DB == 'mysql' ]]; then mysql -u root -e 'CREATE DATABASE cakephp_test;'; fi
+  - if [[ $DB == 'pgsql' ]]; then psql -c 'CREATE DATABASE cakephp_test;' -U postgres; fi
+
+  - |
+      if [[ $TRAVIS_PHP_VERSION == '7.4' ]]; then
+        pecl channel-update pecl.php.net
+        pecl install pcov
+      fi
+
+  - |
+      if [[ $TRAVIS_PHP_VERSION != 'nightly' ]]; then
+        phpenv config-rm xdebug.ini
+        echo 'extension = memcached.so' >> ~/.phpenv/versions/$(phpenv version-name)/etc/php.ini
+        echo 'extension = redis.so' >> ~/.phpenv/versions/$(phpenv version-name)/etc/php.ini
+        echo 'extension = apcu.so' >> ~/.phpenv/versions/$(phpenv version-name)/etc/php.ini
+        echo 'apc.enable_cli = 1' >> ~/.phpenv/versions/$(phpenv version-name)/etc/php.ini
+      fi
+
+  - sudo locale-gen da_DK.UTF-8
+
+install:
+  - |
+      if [[ $PREFER_LOWEST == 1 ]]; then
+        composer update --prefer-lowest --prefer-stable --no-interaction
+      elif [[ $TRAVIS_PHP_VERSION == 'nightly' ]]; then
+        composer install --no-interaction --ignore-platform-reqs
+      else
+        composer install --no-interaction
+      fi
 
 script:
-  - sh -c "if [ '$PHPCS' = '1' ]; then phpcs -p --extensions=php --standard=CakePHP ./lib/Cake; elif [ '$DB' = 'mysql' ]; then ./lib/Cake/Console/cake test core AllTests --stderr; else ./lib/Cake/Console/cake test core AllDbRelated --stderr; fi"
+  - |
+      if [[ $TRAVIS_PHP_VERSION == '7.4' ]]; then
+        export CODECOVERAGE=1 && vendor/bin/phpunit --verbose --coverage-clover=clover.xml
+      else
+        vendor/bin/phpunit
+      fi
+
+after_success:
+  - |
+      if [[ $TRAVIS_PHP_VERSION == '7.4' ]]; then
+        wget https://github.com/php-coveralls/php-coveralls/releases/download/v2.1.0/php-coveralls.phar
+        chmod +x php-coveralls.phar
+        ./php-coveralls.phar
+      fi
 
 notifications:
   email: false
